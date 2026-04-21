@@ -1,0 +1,37 @@
+# Voice registry for spanish-tts
+# Each voice is either 'clone' (from reference audio) or 'design' (from description)
+
+voices:
+  # === Clone voices (from VoxForge Spanish corpus) ===
+  # These will be populated by the curate command
+
+  # === Design voices (fallback, no reference needed) ===
+  neutral_male:
+    type: design
+    instruct: "Hombre hispanohablante de 35 años con acento neutro y claro. Voz calmada y articulada, como un narrador profesional."
+    language: Spanish
+    gender: male
+
+  neutral_female:
+    type: design
+    instruct: "Mujer hispanohablante de 30 años con acento neutro y claro. Tono cálido y amigable, ritmo moderado."
+    language: Spanish
+    gender: female
+
+  energetic_male:
+    type: design
+    instruct: "Hombre hispanohablante de 28 años con una voz enérgica y alegre. Dinámico y animado, como un presentador de podcast."
+    language: Spanish
+    gender: male
+
+  warm_female:
+    type: design
+    instruct: "Mujer hispanohablante de 40 años con una voz cálida y reconfortante. Ritmo suave, como leyendo un cuento antes de dormir."
+    language: Spanish
+    gender: female
+
+# Settings
+defaults:
+  language: Spanish
+  speed: 1.0
+  output_dir: ~/tts-output/spanish

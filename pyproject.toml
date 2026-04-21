@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spanish-tts"
+version = "0.1.0"
+description = "Curated Spanish TTS voices using Qwen3-TTS voice cloning and design"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Alberto González Rouillé" }]
+
+dependencies = [
+    "click>=8.0",
+    "pyyaml>=6.0",
+    "soundfile>=0.12",
+    "numpy>=1.24",
+    "datasets>=2.14",
+]
+
+[project.optional-dependencies]
+mlx = [
+    "mlx-audio>=0.3.0",
+    "mlx-lm>=0.30.0",
+]
+
+[project.scripts]
+spanish-tts = "spanish_tts.cli:cli"
+
+[tool.setuptools.packages.find]
+where = ["src"]
