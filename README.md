@@ -1,6 +1,6 @@
-# spanish-tts
+# qwen3-tts-spanish-voices
 
-Curated Spanish TTS voices powered by [Qwen3-TTS](https://huggingface.co/Qwen/Qwen3-TTS) running locally on Apple Silicon via MLX.
+Curated Spanish TTS voices powered by [Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS) ([HuggingFace models](https://huggingface.co/collections/Qwen/qwen3-tts)) running locally on Apple Silicon via MLX.
 
 14 voices out of the box — 12 cloned from real speakers (VoxForge Spanish corpus) covering Spain, Mexico, Argentina, Chile, and Ibero-American accents, plus 2 designed voices for quick use without reference audio.
 
@@ -17,7 +17,7 @@ Curated Spanish TTS voices powered by [Qwen3-TTS](https://huggingface.co/Qwen/Qw
 conda activate qwen3-tts
 
 # Install in editable mode
-cd ~/Code/spanish-tts
+cd ~/Code/qwen3-tts-spanish-voices  # or wherever you cloned it
 pip install -e ".[mlx]"
 ```
 
@@ -115,7 +115,7 @@ spanish-tts add-design profesor \
 ## Architecture
 
 ```text
-spanish-tts/
+qwen3-tts-spanish-voices/
 ├── src/spanish_tts/
 │   ├── cli.py       # Click CLI (say, list, demo, add-ref, add-design, remove)
 │   ├── config.py    # YAML voice registry management
