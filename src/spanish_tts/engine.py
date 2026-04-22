@@ -2,6 +2,7 @@
 
 import os
 import sys
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
@@ -41,6 +42,36 @@ def _resolve_output(output: str | None, prefix: str, output_dir: str | None = No
     return str(out_dir / f"{prefix}_{ts}.wav")
 
 
+def _collect_audio(results, stream: bool,
+                   on_chunk: Callable[[int, int, float], None] | None = None):
+    """Collect audio from a generator of GenerationResults.
+
+    When stream=False, takes the first result (non-streaming behavior).
+    When stream=True, iterates all chunks and concatenates audio.
+
+    Args:
+        results: Generator from model.generate() or similar.
+        stream: Whether results are streaming chunks.
+        on_chunk: Optional callback(chunk_index, total_samples, est_duration).
+
+    Returns:
+        Concatenated numpy audio array.
+    """
+    if not stream:
+        first_result = next(iter(results))
+        return np.array(first_result.audio)
+
+    chunks = []
+    total_samples = 0
+    for i, chunk in enumerate(results):
+        audio = np.array(chunk.audio)
+        chunks.append(audio)
+        total_samples += len(audio)
+        if on_chunk:
+            on_chunk(i, total_samples, total_samples / 24000.0)
+    return np.concatenate(chunks) if chunks else np.array([], dtype=np.float32)
+
+
 def generate_clone(
     text: str,
     ref_audio: str,
@@ -49,6 +80,9 @@ def generate_clone(
     output: str | None = None,
     output_dir: str | None = None,
     model_id: str | None = None,
+    stream: bool = False,
+    streaming_interval: float = 2.0,
+    on_chunk: Callable[[int, int, float], None] | None = None,
 ) -> str:
     """Generate speech by cloning a reference voice.
 
@@ -60,6 +94,9 @@ def generate_clone(
         output: Output file path (auto-generated if None).
         output_dir: Base output directory.
         model_id: Override model ID.
+        stream: Use streaming decode (lower memory, progress callbacks).
+        streaming_interval: Seconds of audio per streaming chunk (default 2.0).
+        on_chunk: Optional callback(chunk_index, total_samples, est_duration).
 
     Returns:
         Path to generated .wav file.
@@ -70,18 +107,20 @@ def generate_clone(
     if not ref_path.exists():
         raise FileNotFoundError(f"Reference audio not found: {ref_path}")
 
-    print(f"Cloning voice from: {ref_path}", file=sys.stderr)
+    print(f"Cloning voice from: {ref_path}" + (" [streaming]" if stream else ""),
+          file=sys.stderr)
     results = model.generate(
         text=text,
         lang_code="auto",
         ref_audio=str(ref_path),
         ref_text=ref_text,
         speed=speed,
+        stream=stream,
+        streaming_interval=streaming_interval,
     )
 
     output_path = _resolve_output(output, "clone", output_dir)
-    first_result = next(iter(results))
-    audio_np = np.array(first_result.audio)
+    audio_np = _collect_audio(results, stream=stream, on_chunk=on_chunk)
 
     sample_rate = model.sample_rate
     sf.write(output_path, audio_np, sample_rate)
@@ -99,6 +138,9 @@ def generate_design(
     output: str | None = None,
     output_dir: str | None = None,
     model_id: str | None = None,
+    stream: bool = False,
+    streaming_interval: float = 2.0,
+    on_chunk: Callable[[int, int, float], None] | None = None,
 ) -> str:
     """Generate speech from a voice description.
 
@@ -110,15 +152,15 @@ def generate_design(
         output: Output file path (auto-generated if None).
         output_dir: Base output directory.
         model_id: Override model ID.
+        stream: Use streaming decode (lower memory, progress callbacks).
+        streaming_interval: Seconds of audio per streaming chunk (default 2.0).
+        on_chunk: Optional callback(chunk_index, total_samples, est_duration).
 
     Returns:
         Path to generated .wav file.
     """
     model = _get_model(model_id or MODELS["design"])
 
-    # Map language name to lang_code for the codec language token.
-    # "auto" skips the language token entirely, causing the model to
-    # default to English prosody when the instruct is in English.
     lang_map = {
         "Spanish": "spanish", "English": "english", "Chinese": "chinese",
         "French": "french", "German": "german", "Italian": "italian",
@@ -127,17 +169,19 @@ def generate_design(
     }
     lang_code = lang_map.get(language, "spanish")
 
-    print(f"Designing voice: '{instruct[:60]}...' (lang={lang_code})", file=sys.stderr)
+    print(f"Designing voice: '{instruct[:60]}...' (lang={lang_code})"
+          + (" [streaming]" if stream else ""), file=sys.stderr)
     results = model.generate(
         text=text,
         lang_code=lang_code,
         instruct=instruct,
         speed=speed,
+        stream=stream,
+        streaming_interval=streaming_interval,
     )
 
     output_path = _resolve_output(output, "design", output_dir)
-    first_result = next(iter(results))
-    audio_np = np.array(first_result.audio)
+    audio_np = _collect_audio(results, stream=stream, on_chunk=on_chunk)
 
     sample_rate = model.sample_rate
     sf.write(output_path, audio_np, sample_rate)
@@ -153,6 +197,9 @@ def generate(
     speed: float = 1.0,
     output: str | None = None,
     output_dir: str | None = None,
+    stream: bool = False,
+    streaming_interval: float = 2.0,
+    on_chunk: Callable[[int, int, float], None] | None = None,
 ) -> str:
     """Generate speech using a voice config from the registry.
 
@@ -162,6 +209,9 @@ def generate(
         speed: Speed factor override.
         output: Output path override.
         output_dir: Output directory override.
+        stream: Use streaming decode (lower memory, progress callbacks).
+        streaming_interval: Seconds of audio per streaming chunk (default 2.0).
+        on_chunk: Optional callback(chunk_index, total_samples, est_duration).
 
     Returns:
         Path to generated .wav file.
@@ -181,6 +231,9 @@ def generate(
             speed=speed,
             output=output,
             output_dir=output_dir,
+            stream=stream,
+            streaming_interval=streaming_interval,
+            on_chunk=on_chunk,
         )
     elif voice_type == "design":
         instruct = voice_config.get("instruct")
@@ -193,6 +246,9 @@ def generate(
             speed=speed,
             output=output,
             output_dir=output_dir,
+            stream=stream,
+            streaming_interval=streaming_interval,
+            on_chunk=on_chunk,
         )
     else:
         raise ValueError(f"Unknown voice type: {voice_type}")

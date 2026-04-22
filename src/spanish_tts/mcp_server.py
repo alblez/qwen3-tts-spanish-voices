@@ -32,6 +32,7 @@ def say(
     voice: str = "neutral_male",
     speed: float = 1.0,
     output: str | None = None,
+    stream: bool = False,
 ) -> dict:
     """Generate Spanish speech from text using a registered voice.
 
@@ -40,6 +41,7 @@ def say(
         voice: Voice name from registry (default: neutral_male).
         speed: Speed factor 0.8-1.3 (default: 1.0).
         output: Output .wav path (auto-generated if omitted).
+        stream: Use streaming decode for lower memory on long texts (default: false).
 
     Returns:
         Dict with 'path' and 'duration_seconds', or 'error'.
@@ -60,6 +62,9 @@ def say(
     effective_speed = speed or defaults.get("speed", 1.0)
     output_dir = defaults.get("output_dir", "~/tts-output/spanish")
 
+    def _on_chunk(idx: int, total_samples: int, est_duration: float) -> None:
+        logger.info("Chunk %d: %.1fs generated so far", idx, est_duration)
+
     try:
         path = generate(
             text=text,
@@ -67,6 +72,8 @@ def say(
             speed=effective_speed,
             output=output,
             output_dir=output_dir,
+            stream=stream,
+            on_chunk=_on_chunk if stream else None,
         )
     except Exception as e:
         logger.error("generate() failed: %s", e, exc_info=True)
