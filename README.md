@@ -21,6 +21,16 @@ cd ~/Code/qwen3-tts-spanish-voices  # or wherever you cloned it
 pip install -e ".[mlx]"
 ```
 
+### Speed Control (Optional)
+
+For advanced speed control with pitch preservation via librosa, install the `[speed]` extra:
+
+```bash
+pip install -e ".[mlx,speed]"
+```
+
+If `librosa` is not installed, the speed parameter degrades gracefully: generation succeeds with speed=1.0 behavior and a log warning is printed. This allows the package to work without the optional dependency.
+
 ## Quick Start
 
 ```bash

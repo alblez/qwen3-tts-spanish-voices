@@ -27,8 +27,11 @@ mlx = [
 mcp = [
     "mcp[cli]>=1.0",
 ]
+speed = [
+    "librosa>=0.10",
+]
 all = [
-    "qwen3-tts-spanish-voices[mlx,mcp]",
+    "qwen3-tts-spanish-voices[mlx,mcp,speed]",
 ]
 
 [project.scripts]
