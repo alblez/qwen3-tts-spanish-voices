@@ -35,7 +35,9 @@ all = [
 ]
 dev = [
     "pytest>=7",
-    "ruff>=0.15",
+    # Pin to track the ruff-pre-commit hook rev so the same rules run
+    # locally, in the hook, and in CI. Bump both in lockstep.
+    "ruff==0.15.*",
     "pre-commit>=3",
 ]
 
@@ -53,13 +55,13 @@ src = ["src", "tests"]
 [tool.ruff.lint]
 # E/W pycodestyle, F pyflakes, I isort, UP pyupgrade, B bugbear
 select = ["E", "F", "W", "I", "UP", "B"]
-# Noise we don't want: long lines (format handles most; keep E501 off for now)
-# and unused module imports inside __init__ (we use them as re-exports).
+# Long lines: ruff-format handles most cases; leaving E501 off avoids
+# noise on unsplittable strings, URLs, and long comments.
 ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
+# __init__.py uses imports as re-exports; silence the unused-import lint.
 "src/spanish_tts/__init__.py" = ["F401"]
-"tests/**" = ["B011"]  # pytest asserts
 
 [tool.ruff.format]
 quote-style = "double"

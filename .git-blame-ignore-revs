@@ -1,0 +1,8 @@
+# Revisions to ignore in `git blame` (and GitHub's blame UI).
+# Enable locally with:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# DEV-1: bulk ruff reformat of src/ and tests/
+3d3e174
+# DEV-1: bulk ruff reformat of scripts/
+41b6225

@@ -1,6 +1,11 @@
 # DEV-1: keep PRs clean without agent effort.
-# Install once with `pip install pre-commit && pre-commit install`.
-# Hooks run on `git commit` against changed files only.
+# Install once per clone:
+#   pip install -e ".[dev]"
+#   pre-commit install                     # commit-stage hooks
+#   pre-commit install --hook-type pre-push # push-stage pytest smoke
+
+default_language_version:
+  python: python3.11
 
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
@@ -23,13 +28,14 @@ repos:
         args: [--maxkb=500]
       - id: check-merge-conflict
 
-  # Fast, pytest-on-changed hook: runs on push only so local commits stay snappy.
-  # Skips when no Python changed. Adjust if your test suite changes.
+  # Fast pytest hook on push only. Runs the full suite with -x, skipping
+  # tests marked `slow` to match CI. Bypass on WIP pushes with
+  # `git push --no-verify` or `SKIP=pytest-fast git push`.
   - repo: local
     hooks:
-      - id: pytest-changed
-        name: pytest (changed files smoke)
-        entry: bash -c 'python -m pytest -q -x --no-header'
+      - id: pytest-fast
+        name: pytest (fast, on push)
+        entry: bash -c 'python -m pytest -q -x -m "not slow" --no-header'
         language: system
         types: [python]
         pass_filenames: false
