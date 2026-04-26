@@ -28,7 +28,7 @@ mcp = [
     "mcp[cli]>=1.0",
 ]
 speed = [
-    "librosa>=0.10",
+    "librosa>=0.10,<0.12",
 ]
 all = [
     "qwen3-tts-spanish-voices[mlx,mcp,speed]",
