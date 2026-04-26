@@ -8,3 +8,21 @@ updates:
       prefix: "ci"
     labels:
       - dependencies
+
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "build"
+    labels:
+      - dependencies
+
+  - package-ecosystem: pre-commit
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "build"
+    labels:
+      - dependencies

@@ -171,18 +171,31 @@ MIT
 
 ## Contributing
 
-Pre-commit hooks keep the repo formatted and linted on every commit:
+Pre-commit hooks keep the repo formatted and linted on every commit.
 
 ```bash
 pip install -e ".[dev]"
-pre-commit install
+pre-commit install                       # commit-stage hooks
+pre-commit install --hook-type pre-push  # push-stage pytest smoke
 ```
 
-Now `git commit` runs `ruff check --fix` and `ruff format` on changed files, plus basic hygiene hooks (trailing whitespace, EOF, YAML/TOML syntax, merge-conflict markers, 500KB file-size cap). A pytest smoke hook runs on `git push`.
+On `git commit`, `ruff check --fix` and `ruff format` run on changed files, plus basic hygiene hooks (trailing whitespace, EOF, YAML/TOML syntax, merge-conflict markers, 500KB file-size cap). On `git push`, the full test suite runs with `-x -m "not slow"` for fast feedback.
 
-Run everything manually with:
+Bypass a hook for WIP/throwaway work:
+
+```bash
+git commit --no-verify
+SKIP=pytest-fast git push
+```
+
+Run everything manually:
 
 ```bash
 pre-commit run --all-files
 ```
 
+For cleaner `git blame` past the bulk reformat commits:
+
+```bash
+git config blame.ignoreRevsFile .git-blame-ignore-revs
+```
