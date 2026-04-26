@@ -50,3 +50,60 @@ def test_list_all_voices_returns_full_instruct(bundled_presets):
         if info.get("type") == "design":
             assert "description" in info
             assert info["description"], f"{name} has empty description"
+
+
+def test_say_rejects_absolute_path_outside_output_dir(bundled_presets, tmp_path, monkeypatch):
+    """MCP-1 regression: absolute paths outside the configured
+    output_dir must be rejected before engine.generate is called.
+    """
+    mcp = bundled_presets
+    # Make sure engine.generate is NEVER reached.
+    monkeypatch.setattr(
+        mcp,
+        "generate",
+        lambda *a, **kw: pytest.fail("generate() must not be called for rejected path"),
+    )
+    # Force defaults.output_dir to a known tmp path.
+    monkeypatch.setattr(mcp, "get_defaults", lambda: {"speed": 1.0, "output_dir": str(tmp_path)})
+
+    result = mcp.say(text="hola", voice="neutral_male", output="/etc/passwd")
+    assert "error" in result
+    assert "escapes" in result["error"] or "traversal" in result["error"]
+
+
+def test_say_rejects_dotdot_escape(bundled_presets, tmp_path, monkeypatch):
+    """Relative `../../` escape attempts must also be rejected."""
+    mcp = bundled_presets
+    monkeypatch.setattr(
+        mcp,
+        "generate",
+        lambda *a, **kw: pytest.fail("generate() must not be called for rejected path"),
+    )
+    monkeypatch.setattr(mcp, "get_defaults", lambda: {"speed": 1.0, "output_dir": str(tmp_path)})
+
+    result = mcp.say(text="hola", voice="neutral_male", output="../../../etc/passwd")
+    assert "error" in result
+    assert "escapes" in result["error"] or "traversal" in result["error"]
+
+
+def test_say_accepts_relative_path_inside_output_dir(bundled_presets, tmp_path, monkeypatch):
+    """Relative paths that resolve inside output_dir must pass the
+    guard and be handed to engine.generate with an absolute path.
+    """
+    mcp = bundled_presets
+    captured = {}
+
+    def fake_generate(**kwargs):
+        captured.update(kwargs)
+        return kwargs["output"]
+
+    monkeypatch.setattr(mcp, "generate", fake_generate)
+    monkeypatch.setattr(mcp, "get_defaults", lambda: {"speed": 1.0, "output_dir": str(tmp_path)})
+
+    result = mcp.say(text="hola", voice="neutral_male", output="sub/out.wav")
+    # No error returned. The path may or may not exist yet; sf.info
+    # will fail which is fine — `duration_seconds` comes back None.
+    assert "error" not in result, result
+    resolved = captured["output"]
+    assert resolved.startswith(str(tmp_path.resolve()))
+    assert resolved.endswith("sub/out.wav")
