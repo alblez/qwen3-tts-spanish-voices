@@ -3,6 +3,6 @@
 #   git config blame.ignoreRevsFile .git-blame-ignore-revs
 
 # DEV-1: bulk ruff reformat of src/ and tests/
-3d3e174
+adbb44e
 # DEV-1: bulk ruff reformat of scripts/
-41b6225
+158905b
