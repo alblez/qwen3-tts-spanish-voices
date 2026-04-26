@@ -119,18 +119,21 @@ def list_all_voices() -> dict:
 
 
 @mcp.tool()
-def demo(text: str, output_dir: str = "/tmp/spanish-tts-demo") -> dict:
+def demo(text: str, output_dir: str = "/tmp/spanish-tts-demo", speed: float = 1.0) -> dict:
     """Generate the same text with ALL registered voices for comparison.
 
     Args:
         text: Text to synthesize (Spanish).
         output_dir: Directory for output files (default: /tmp/spanish-tts-demo).
+        speed: Speed factor 0.5-2.0 (default: 1.0).
 
     Returns:
         Dict with 'results' list of per-voice outcomes.
     """
     if not text or not text.strip():
         return {"error": "text is empty"}
+    if not (0.5 <= speed <= 2.0):
+        return {"error": f"speed out of range 0.5-2.0: {speed}"}
 
     from pathlib import Path
 
@@ -147,7 +150,7 @@ def demo(text: str, output_dir: str = "/tmp/spanish-tts-demo") -> dict:
             path = generate(
                 text=text,
                 voice_config=config,
-                speed=1.0,
+                speed=speed,
                 output=str(out / f"{name}.wav"),
             )
             results.append({"voice": name, "path": path, "status": "ok"})
