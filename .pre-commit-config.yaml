@@ -1,0 +1,36 @@
+# DEV-1: keep PRs clean without agent effort.
+# Install once with `pip install pre-commit && pre-commit install`.
+# Hooks run on `git commit` against changed files only.
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.12
+    hooks:
+      # Lint (uses [tool.ruff.lint] in pyproject.toml).
+      - id: ruff-check
+        args: [--fix]
+      # Format (uses [tool.ruff.format] in pyproject.toml).
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: check-merge-conflict
+
+  # Fast, pytest-on-changed hook: runs on push only so local commits stay snappy.
+  # Skips when no Python changed. Adjust if your test suite changes.
+  - repo: local
+    hooks:
+      - id: pytest-changed
+        name: pytest (changed files smoke)
+        entry: bash -c 'python -m pytest -q -x --no-header'
+        language: system
+        types: [python]
+        pass_filenames: false
+        stages: [pre-push]

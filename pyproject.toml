@@ -33,6 +33,11 @@ speed = [
 all = [
     "qwen3-tts-spanish-voices[mlx,mcp,speed]",
 ]
+dev = [
+    "pytest>=7",
+    "ruff>=0.15",
+    "pre-commit>=3",
+]
 
 [project.scripts]
 spanish-tts = "spanish_tts.cli:cli"

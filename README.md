@@ -168,3 +168,21 @@ Clone voices sourced from [VoxForge Spanish (CIEMPIESS)](https://huggingface.co/
 ## License
 
 MIT
+
+## Contributing
+
+Pre-commit hooks keep the repo formatted and linted on every commit:
+
+```bash
+pip install -e ".[dev]"
+pre-commit install
+```
+
+Now `git commit` runs `ruff check --fix` and `ruff format` on changed files, plus basic hygiene hooks (trailing whitespace, EOF, YAML/TOML syntax, merge-conflict markers, 500KB file-size cap). A pytest smoke hook runs on `git push`.
+
+Run everything manually with:
+
+```bash
+pre-commit run --all-files
+```
+
