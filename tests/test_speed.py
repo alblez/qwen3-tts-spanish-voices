@@ -285,3 +285,47 @@ class TestConstants:
         """SPEED_MIN=0.5, SPEED_MAX=2.0."""
         assert SPEED_MIN == 0.5
         assert SPEED_MAX == 2.0
+
+class TestApplySpeedInputGuards:
+    """ENG-1: _apply_speed input-contract guards."""
+
+    def test_rejects_non_ndarray(self):
+        with pytest.raises(ValueError, match="numpy.ndarray"):
+            _apply_speed([0.0] * 4096, 1.5, 24000)  # type: ignore[arg-type]
+
+    def test_rejects_stereo_2d(self):
+        stereo = np.zeros((2, 4096), dtype=np.float32)
+        with pytest.raises(ValueError, match="mono 1-D"):
+            _apply_speed(stereo, 1.5, 24000)
+
+    def test_rejects_empty_array(self):
+        empty = np.zeros(0, dtype=np.float32)
+        with pytest.raises(ValueError, match="empty"):
+            _apply_speed(empty, 1.5, 24000)
+
+    def test_rejects_too_short(self):
+        short = np.zeros(512, dtype=np.float32)
+        with pytest.raises(ValueError, match="at least"):
+            _apply_speed(short, 1.5, 24000)
+
+    @pytest.mark.skipif(not HAS_LIBROSA, reason="librosa required")
+    def test_rejects_nan(self):
+        bad = np.full(4096, np.nan, dtype=np.float32)
+        with pytest.raises(ValueError, match="non-finite"):
+            _apply_speed(bad, 1.5, 24000)
+
+    @pytest.mark.skipif(not HAS_LIBROSA, reason="librosa required")
+    def test_rejects_inf(self):
+        bad = np.zeros(4096, dtype=np.float32)
+        bad[100] = np.inf
+        with pytest.raises(ValueError, match="non-finite"):
+            _apply_speed(bad, 1.5, 24000)
+
+    def test_noop_path_skips_guards(self):
+        # speed=1.0 returns immediately without validation — preserves
+        # backward compat for any callers that hand in odd shapes but
+        # only ever use the no-op path.
+        weird = np.zeros((2, 10), dtype=np.float32)
+        result = _apply_speed(weird, 1.0, 24000)
+        assert result is weird
+

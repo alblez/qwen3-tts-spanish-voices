@@ -26,30 +26,64 @@ _model_cache = {}
 
 def _apply_speed(audio: np.ndarray, speed: float, sample_rate: int) -> np.ndarray:
     """Post-synthesis pitch-preserving time-stretch. No-op at speed=1.0.
-    
+
+    Contract: mono float audio only. Multi-channel input is rejected
+    rather than silently averaged. Empty arrays and NaN/inf are rejected
+    rather than passed to librosa where they produce confusing errors.
+
     Args:
-        audio: Audio array (float32).
+        audio: Mono audio array (1-D). dtype is cast to float32 internally.
         speed: Speed factor (0.5-2.0; rate > 1.0 speeds up).
         sample_rate: Sample rate in Hz.
-    
+
     Returns:
-        Time-stretched audio array. Falls back to unmodified audio if librosa unavailable.
-    
+        Time-stretched audio array (float32, 1-D). Falls back to unmodified
+        audio if librosa is not installed.
+
     Raises:
-        ValueError: If speed outside 0.5-2.0.
+        ValueError: If speed is outside 0.5-2.0, audio is not a numpy array,
+            audio is not 1-D (mono), audio is empty, audio contains NaN/inf,
+            or audio length is below the librosa STFT hop threshold.
     """
     if abs(speed - 1.0) < 1e-6:
         return audio
     if not (SPEED_MIN <= speed <= SPEED_MAX):
         raise ValueError(f"speed out of range {SPEED_MIN}-{SPEED_MAX}: {speed}")
-    
+
+    # Input contract: mono 1-D numpy array, non-empty, finite samples.
+    if not isinstance(audio, np.ndarray):
+        raise ValueError(
+            f"_apply_speed expects numpy.ndarray, got {type(audio).__name__}"
+        )
+    if audio.ndim != 1:
+        raise ValueError(
+            f"_apply_speed expects mono 1-D audio, got shape {audio.shape}. "
+            "Downmix to mono before calling (e.g. audio.mean(axis=0) for (channels, N))."
+        )
+    if audio.size == 0:
+        raise ValueError("_apply_speed got empty audio array")
+
+    # librosa.effects.time_stretch defaults to n_fft=2048; shorter inputs
+    # crash inside the STFT with a cryptic error. Gate explicitly.
+    _MIN_SAMPLES_FOR_STFT = 2048
+    if audio.size < _MIN_SAMPLES_FOR_STFT:
+        raise ValueError(
+            f"_apply_speed got audio of length {audio.size}; need at least "
+            f"{_MIN_SAMPLES_FOR_STFT} samples for librosa time_stretch "
+            f"(~{_MIN_SAMPLES_FOR_STFT / sample_rate * 1000:.0f}ms at "
+            f"{sample_rate}Hz)."
+        )
+
+    audio_f = audio.astype(np.float32, copy=False)
+    if not np.all(np.isfinite(audio_f)):
+        raise ValueError("_apply_speed got non-finite samples (NaN or inf)")
+
     try:
         import librosa
     except ImportError:
         logger.warning("librosa not installed; speed parameter ignored. Install with: pip install 'spanish-tts[speed]'")
         return audio
-    
-    audio_f = audio.astype(np.float32, copy=False)
+
     stretched = librosa.effects.time_stretch(y=audio_f, rate=speed)
     return stretched
 
