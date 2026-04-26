@@ -79,14 +79,36 @@ def say(
     # on purpose: `engine.generate` still accepts arbitrary paths for
     # local-user invocations. Only the MCP tool is sandboxed.
     if output is not None:
+        # Quick structural rejections before touching the filesystem:
+        # empty string, NUL byte (pathlib would raise mid-resolve with
+        # a ValueError that escapes our error-dict contract).
+        if output == "" or "\x00" in output:
+            return {"error": f"output path {output!r} is not a valid filename"}
+
         safe_root = Path(output_dir).expanduser().resolve()
         # Join then resolve so both relative and absolute `output`
-        # values get normalised against the same safe_root.
-        candidate = (
-            (safe_root / output).resolve()
-            if not Path(output).is_absolute()
-            else Path(output).resolve()
-        )
+        # values get normalised against the same safe_root. resolve()
+        # follows symlinks, so a symlink inside safe_root pointing out
+        # is caught by the relative_to check below.
+        try:
+            candidate = (
+                (safe_root / output).resolve()
+                if not Path(output).is_absolute()
+                else Path(output).resolve()
+            )
+        except (OSError, ValueError) as e:
+            return {"error": f"output path {output!r} cannot be resolved: {e}"}
+
+        # Reject writing to safe_root itself — it is a directory and
+        # engine.generate would fail downstream with a less clear error.
+        if candidate == safe_root:
+            return {
+                "error": (
+                    f"output path {output!r} resolves to output_dir "
+                    "itself; supply a filename under it or omit `output`."
+                )
+            }
+
         try:
             candidate.relative_to(safe_root)
         except ValueError:
