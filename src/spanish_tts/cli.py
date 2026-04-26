@@ -13,7 +13,7 @@ from spanish_tts.engine import generate, SPEED_MIN, SPEED_MAX
 
 
 @click.group()
-@click.version_option()
+@click.version_option(package_name="qwen3-tts-spanish-voices")
 def cli():
     """Curated Spanish TTS voices using Qwen3-TTS."""
     pass
