@@ -10,6 +10,9 @@ import numpy as np
 import soundfile as sf
 
 
+# Speed range constants
+SPEED_MIN, SPEED_MAX = 0.5, 2.0
+
 # Default MLX models
 MODELS = {
     "clone": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit",
