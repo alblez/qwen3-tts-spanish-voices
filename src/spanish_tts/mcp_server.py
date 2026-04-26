@@ -162,8 +162,8 @@ def demo(text: str, output_dir: str = "/tmp/spanish-tts-demo", speed: float = 1.
 
 
 def _preload_models():
-    """Eagerly load common models so first tool calls are fast."""
-    from spanish_tts.engine import MODELS, _get_model
+    """Eagerly load common models + warm librosa so first tool calls are fast."""
+    from spanish_tts.engine import MODELS, _apply_speed, _get_model
 
     for mode in ("clone", "design"):
         model_id = MODELS[mode]
@@ -174,6 +174,18 @@ def _preload_models():
         except Exception as e:
             # Non-fatal: model will load on first tool call instead
             logger.warning("Pre-load of '%s' failed (will retry on first call): %s", mode, e)
+
+    # Warm librosa JIT so first `say` with speed != 1.0 doesn't pay the
+    # one-off ~18s time_stretch init cost. Graceful no-op if librosa
+    # isn't installed (the [speed] extra is optional).
+    logger.info("Warming librosa time-stretch...")
+    try:
+        import numpy as np
+
+        _apply_speed(np.zeros(24000, dtype=np.float32), 1.5, 24000)
+        logger.info("librosa warmup complete")
+    except Exception as e:
+        logger.warning("librosa warmup skipped: %s", e)
 
 
 def main():
