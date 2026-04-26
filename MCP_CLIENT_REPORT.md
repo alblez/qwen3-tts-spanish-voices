@@ -1,5 +1,12 @@
 # spanish-tts MCP — Client-Side Report
 
+> **Status (v0.2.0, 2026-04-26):** This is a point-in-time client-side
+> probe taken before the speed-correctness fix. Defects C1 (speed no-op),
+> C2 (docstring drift), and C4 (demo lacks speed) were addressed in PR #1
+> (merged commit `cebf301`). C3 (truncated descriptions) and C5
+> (no prompts/resources) remain open as M4 and M8 in MAINTAINER_BACKLOG.md.
+> See CHANGELOG.md for the shipped set.
+
 Findings from Hermes Agent acting purely as an MCP client of the
 `spanish-tts` server. No source code was read to produce this document —
 every claim is supported by a tool call and the response it returned.
