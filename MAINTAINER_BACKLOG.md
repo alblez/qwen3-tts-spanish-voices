@@ -10,6 +10,10 @@ Scope of review: `src/spanish_tts/{mcp_server,engine,config,cli}.py`,
 
 ---
 
+> **Status (v0.2.0, 2026-04-26):** M1, M2, M3, M6 delivered in PR #1
+> (merged commit `cebf301`). M4, M5, M7, M8 remain open. See CHANGELOG.md
+> for the shipped set.
+
 ## Cross-reference
 
 | Client-side (MCP_CLIENT_REPORT.md) | Maintainer issue |
@@ -25,7 +29,7 @@ Scope of review: `src/spanish_tts/{mcp_server,engine,config,cli}.py`,
 
 ---
 
-## M1 — `speed` is a no-op (HIGH, blocks M2 and M6)
+## M1 — `speed` is a no-op (HIGH, blocks M2 and M6) — DONE in v0.2.0
 
 **Root cause (confirmed)**
 `mlx_audio.tts.models.qwen3_tts.Model.generate` accepts `speed:
@@ -62,7 +66,7 @@ before `sf.write`.
 
 ---
 
-## M2 — Docstring/validator drift (MEDIUM)
+## M2 — Docstring/validator drift (MEDIUM) — DONE in v0.2.0
 
 Four spots advertise speed range 0.8-1.3 while the only validator in
 place enforces 0.5-2.0. CLI has no validator at all.
@@ -85,7 +89,7 @@ place enforces 0.5-2.0. CLI has no validator at all.
 
 ---
 
-## M3 — MCP `effective_speed` fallback is dead code (LOW, source-only)
+## M3 — MCP `effective_speed` fallback is dead code (LOW, source-only) — DONE in v0.2.0
 
 ```python
 effective_speed = speed or defaults.get("speed", 1.0)
@@ -158,7 +162,7 @@ promised.
 
 ---
 
-## M6 — `demo` hardcodes `speed=1.0` (LOW)
+## M6 — `demo` hardcodes `speed=1.0` (LOW) — DONE in v0.2.0
 
 Both `mcp_server.demo` and `cli.demo` pass `speed=1.0` unconditionally.
 After M1 lands this is a noticeable feature gap.
