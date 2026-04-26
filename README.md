@@ -31,6 +31,8 @@ pip install -e ".[mlx,speed]"
 
 If `librosa` is not installed, the speed parameter degrades gracefully: generation succeeds with speed=1.0 behavior and a log warning is printed. This allows the package to work without the optional dependency.
 
+> Note for contributors: librosa pulls in `pooch`, which can silently download example assets on first use of `librosa.load` with built-in examples. Our `time_stretch` path does not trigger this, but if you extend the audio pipeline with `librosa.example(...)` or `librosa.load('librosa://...')`, expect a one-time network fetch on first call.
+
 ## Quick Start
 
 ```bash
