@@ -142,6 +142,11 @@ class TestApplySpeed:
                 with patch("builtins.__import__", side_effect=ImportError):
                     result = _apply_speed(audio, 1.5, 24000)
                     assert np.array_equal(result, audio)
+                    # Contract: fallback must log a warning, not fail silently.
+                    mock_logger.warning.assert_called_once()
+                    msg = mock_logger.warning.call_args[0][0]
+                    assert 'librosa' in msg.lower()
+                    assert 'speed' in msg.lower()
 
 
 class TestCLISpeedValidation:
