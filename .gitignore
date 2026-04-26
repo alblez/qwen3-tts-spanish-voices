@@ -27,3 +27,4 @@ candidates.json
 
 # References are user-specific
 references/
+.opencode_task.md
