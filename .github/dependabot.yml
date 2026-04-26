@@ -17,6 +17,12 @@ updates:
       prefix: "build"
     labels:
       - dependencies
+    groups:
+      dev-tools:
+        patterns:
+          - "ruff"
+          - "pytest*"
+          - "pre-commit"
 
   - package-ecosystem: pre-commit
     directory: /
