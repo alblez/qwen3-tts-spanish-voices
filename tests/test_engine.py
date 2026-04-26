@@ -17,7 +17,7 @@ class TestModels:
     def test_model_keys(self):
         assert "clone" in MODELS
         assert "design" in MODELS
-        assert "custom" in MODELS
+        assert "custom" not in MODELS  # dropped in M7: dead code
 
     def test_model_ids_are_mlx(self):
         for key, model_id in MODELS.items():
