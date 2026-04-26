@@ -18,6 +18,7 @@ def bundled_presets(tmp_path, monkeypatch):
         sys.modules.pop(mod, None)
     import spanish_tts.config  # noqa: F401
     import spanish_tts.mcp_server as mcp_server
+
     importlib.reload(mcp_server)
     yield mcp_server
     for mod in ("spanish_tts.config", "spanish_tts.mcp_server"):
