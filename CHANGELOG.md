@@ -35,6 +35,11 @@ rate), plus related housekeeping.
 ### Fixed
 - MCP `say` and CLI `say` now behave identically: the speed arg is
   validated to the same range and actually affects output duration.
+- MCP `say` default `speed` is now `None` (was `1.0`), matching the
+  CLI. When omitted, both callers fall through to
+  `voices.yaml > defaults.speed` before validation, so the registry
+  default is honoured instead of being silently overridden by a
+  truthy 1.0 default.
 
 ### Known limitations
 - librosa time-stretch is phase-vocoder based; artefacts can creep in

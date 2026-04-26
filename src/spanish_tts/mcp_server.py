@@ -30,7 +30,7 @@ mcp = FastMCP("spanish-tts")
 def say(
     text: str,
     voice: str = "neutral_male",
-    speed: float = 1.0,
+    speed: float | None = None,
     output: str | None = None,
     stream: bool = False,
 ) -> dict:
@@ -39,7 +39,8 @@ def say(
     Args:
         text: Text to synthesize (Spanish).
         voice: Voice name from registry (default: neutral_male).
-        speed: Speed factor 0.5-2.0 (default: 1.0).
+        speed: Speed factor 0.5-2.0. If omitted, falls back to
+            voices.yaml `defaults.speed` (or 1.0). Matches CLI behaviour.
         output: Output .wav path (auto-generated if omitted).
         stream: Use streaming decode for lower memory on long texts (default: false).
 
@@ -50,8 +51,6 @@ def say(
         return {"error": "text is empty"}
     if len(text) > 10000:
         return {"error": f"text too long ({len(text)} chars, max 10000)"}
-    if not (0.5 <= speed <= 2.0):
-        return {"error": f"speed out of range 0.5-2.0: {speed}"}
 
     voice_config = get_voice(voice)
     if voice_config is None:
@@ -59,7 +58,9 @@ def say(
         return {"error": f"Voice '{voice}' not found. Available: {', '.join(available)}"}
 
     defaults = get_defaults()
-    effective_speed = speed or defaults.get("speed", 1.0)
+    effective_speed = speed if speed is not None else defaults.get("speed", 1.0)
+    if not (0.5 <= effective_speed <= 2.0):
+        return {"error": f"speed out of range 0.5-2.0: {effective_speed}"}
     output_dir = defaults.get("output_dir", "~/tts-output/spanish")
 
     def _on_chunk(idx: int, total_samples: int, est_duration: float) -> None:

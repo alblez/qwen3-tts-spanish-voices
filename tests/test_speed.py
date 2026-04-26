@@ -192,6 +192,58 @@ class TestCLISpeedValidation:
 class TestMCPSpeedValidation:
     """MCP speed validation."""
 
+    def test_mcp_say_none_speed_uses_defaults_speed(self):
+        """MCP say(speed=None) honours voices.yaml defaults.speed (CLI parity)."""
+        from spanish_tts.mcp_server import say
+
+        with patch("spanish_tts.mcp_server.get_voice",
+                   return_value={"type": "design", "instruct": "t"}):
+            with patch("spanish_tts.mcp_server.get_defaults",
+                       return_value={"speed": 1.25, "output_dir": "/tmp/x"}):
+                captured = {}
+
+                def fake_generate(**kwargs):
+                    captured.update(kwargs)
+                    return "/tmp/ok.wav"
+
+                with patch("spanish_tts.mcp_server.generate",
+                           side_effect=fake_generate):
+                    result = say(text="hola", voice="x", speed=None)
+                    assert "error" not in result
+                    assert captured["speed"] == 1.25
+
+    def test_mcp_say_default_speed_is_none(self):
+        """MCP say() without speed arg uses defaults (parity with CLI)."""
+        from spanish_tts.mcp_server import say
+
+        with patch("spanish_tts.mcp_server.get_voice",
+                   return_value={"type": "design", "instruct": "t"}):
+            with patch("spanish_tts.mcp_server.get_defaults",
+                       return_value={"speed": 0.9, "output_dir": "/tmp/x"}):
+                captured = {}
+
+                def fake_generate(**kwargs):
+                    captured.update(kwargs)
+                    return "/tmp/ok.wav"
+
+                with patch("spanish_tts.mcp_server.generate",
+                           side_effect=fake_generate):
+                    result = say(text="hola", voice="x")
+                    assert captured["speed"] == 0.9
+
+    def test_mcp_say_defaults_speed_out_of_range_rejected(self):
+        """MCP say() rejects out-of-range defaults.speed after fallback."""
+        from spanish_tts.mcp_server import say
+
+        with patch("spanish_tts.mcp_server.get_voice",
+                   return_value={"type": "design", "instruct": "t"}):
+            with patch("spanish_tts.mcp_server.get_defaults",
+                       return_value={"speed": 3.0, "output_dir": "/tmp/x"}):
+                result = say(text="hola", voice="x")
+                assert "error" in result
+                assert "speed out of range" in result["error"]
+
+
     def test_mcp_say_reject_out_of_range(self):
         """MCP say() rejects out-of-range speed."""
         from spanish_tts.mcp_server import say
