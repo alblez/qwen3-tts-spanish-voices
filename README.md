@@ -43,8 +43,8 @@ spanish-tts say "Buenos días" --voice carlos_mx
 # Generate and auto-play
 spanish-tts say "El café colombiano es magnífico." --voice elena_mx --play
 
-# Adjust speed (0.8 = slow, 1.3 = fast)
-spanish-tts say "Rápido como el viento" --voice energetic_male --speed 1.2
+# Adjust speed (0.5 = slow, 2.0 = fast)
+spanish-tts say "Rápido como el viento" --voice energetic_male --speed 0.8
 
 # Custom output path
 spanish-tts say "Guardado aquí" --voice warm_female --output ~/my-audio.wav

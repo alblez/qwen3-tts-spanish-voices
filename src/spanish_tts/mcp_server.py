@@ -39,7 +39,7 @@ def say(
     Args:
         text: Text to synthesize (Spanish).
         voice: Voice name from registry (default: neutral_male).
-        speed: Speed factor 0.8-1.3 (default: 1.0).
+        speed: Speed factor 0.5-2.0 (default: 1.0).
         output: Output .wav path (auto-generated if omitted).
         stream: Use streaming decode for lower memory on long texts (default: false).
 

@@ -22,7 +22,7 @@ def cli():
 @cli.command()
 @click.argument("text")
 @click.option("--voice", "-v", default="neutral_male", help="Voice name from registry.")
-@click.option("--speed", "-s", type=float, default=None, help="Speed factor (0.8-1.3).")
+@click.option("--speed", "-s", type=float, default=None, help="Speed factor (0.5-2.0).")
 @click.option("--output", "-o", default=None, help="Output .wav path.")
 @click.option("--play", "-p", is_flag=True, help="Auto-play with afplay after generating.")
 def say(text, voice, speed, output, play):
