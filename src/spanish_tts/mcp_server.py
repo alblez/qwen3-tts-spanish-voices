@@ -15,6 +15,7 @@ Hermes config.yaml:
 
 import logging
 import sys
+from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
@@ -41,7 +42,16 @@ def say(
         voice: Voice name from registry (default: neutral_male).
         speed: Speed factor 0.5-2.0. If omitted, falls back to
             voices.yaml `defaults.speed` (or 1.0). Matches CLI behaviour.
-        output: Output .wav path (auto-generated if omitted).
+        output: Output .wav path (auto-generated if omitted). MUST
+            resolve inside the configured output_dir (voices.yaml
+            defaults.output_dir). Absolute paths outside that root and
+            relative ``..`` escapes are rejected — the tool returns an
+            error dict instead of writing. Absolute paths that already
+            resolve inside output_dir are accepted. Hardens the MCP
+            surface for cases where the server is exposed over a
+            transport other than a trusted local stdio parent. CLI
+            users are not affected; they call engine.generate directly
+            and get the untrusted-but-local semantics they always had.
         stream: Use streaming decode for lower memory on long texts (default: false).
 
     Returns:
@@ -62,6 +72,32 @@ def say(
     if not (0.5 <= effective_speed <= 2.0):
         return {"error": f"speed out of range 0.5-2.0: {effective_speed}"}
     output_dir = defaults.get("output_dir", "~/tts-output/spanish")
+
+    # MCP-1 path-traversal hardening. If the caller supplied `output`,
+    # it MUST land inside output_dir once resolved. Rejects absolute
+    # paths and ../../escape attempts. Asymmetric with the CLI path
+    # on purpose: `engine.generate` still accepts arbitrary paths for
+    # local-user invocations. Only the MCP tool is sandboxed.
+    if output is not None:
+        safe_root = Path(output_dir).expanduser().resolve()
+        # Join then resolve so both relative and absolute `output`
+        # values get normalised against the same safe_root.
+        candidate = (
+            (safe_root / output).resolve()
+            if not Path(output).is_absolute()
+            else Path(output).resolve()
+        )
+        try:
+            candidate.relative_to(safe_root)
+        except ValueError:
+            return {
+                "error": (
+                    f"output path {output!r} escapes output_dir "
+                    f"{str(safe_root)!r}. MCP refuses path traversal; "
+                    "use a path relative to output_dir or omit `output`."
+                )
+            }
+        output = str(candidate)
 
     def _on_chunk(idx: int, total_samples: int, est_duration: float) -> None:
         logger.info("Chunk %d: %.1fs generated so far", idx, est_duration)
