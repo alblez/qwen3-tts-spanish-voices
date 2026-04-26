@@ -6,7 +6,6 @@ from typing import Any
 
 import yaml
 
-
 VOICES_FILENAME = "voices.yaml"
 DEFAULT_CONFIG_DIR = Path.home() / ".spanish-tts"
 DEFAULT_VOICES_FILE = Path(__file__).parent.parent.parent / "presets" / VOICES_FILENAME
@@ -77,4 +76,6 @@ def list_voices(voices_file: Path | None = None) -> dict[str, dict[str, Any]]:
 def get_defaults(voices_file: Path | None = None) -> dict[str, Any]:
     """Get default settings."""
     data = load_voices(voices_file)
-    return data.get("defaults", {"language": "Spanish", "speed": 1.0, "output_dir": "~/tts-output/spanish"})
+    return data.get(
+        "defaults", {"language": "Spanish", "speed": 1.0, "output_dir": "~/tts-output/spanish"}
+    )

@@ -9,7 +9,7 @@ from spanish_tts.config import (
     get_voice,
     list_voices,
 )
-from spanish_tts.engine import generate, SPEED_MIN, SPEED_MAX
+from spanish_tts.engine import SPEED_MAX, SPEED_MIN, generate
 
 
 @click.group()
@@ -22,7 +22,13 @@ def cli():
 @cli.command()
 @click.argument("text")
 @click.option("--voice", "-v", default="neutral_male", help="Voice name from registry.")
-@click.option("--speed", "-s", type=click.FloatRange(SPEED_MIN, SPEED_MAX), default=None, help="Speed factor (0.5-2.0).")
+@click.option(
+    "--speed",
+    "-s",
+    type=click.FloatRange(SPEED_MIN, SPEED_MAX),
+    default=None,
+    help="Speed factor (0.5-2.0).",
+)
 @click.option("--output", "-o", default=None, help="Output .wav path.")
 @click.option("--play", "-p", is_flag=True, help="Auto-play with afplay after generating.")
 def say(text, voice, speed, output, play):
@@ -51,6 +57,7 @@ def say(text, voice, speed, output, play):
 
     if play:
         import subprocess
+
         subprocess.run(["afplay", result])
 
 
@@ -132,6 +139,7 @@ def voices():
 def remove(name):
     """Remove a voice from the registry."""
     from spanish_tts.config import load_voices, save_voices
+
     data = load_voices()
     voices = data.get("voices", {})
     if name not in voices:
@@ -145,11 +153,20 @@ def remove(name):
 
 @cli.command()
 @click.argument("text")
-@click.option("--output-dir", "-d", default="/tmp/spanish-tts-demo", help="Directory for demo files.")
-@click.option("--speed", "-s", type=click.FloatRange(SPEED_MIN, SPEED_MAX), default=1.0, help="Speed factor (0.5-2.0).")
+@click.option(
+    "--output-dir", "-d", default="/tmp/spanish-tts-demo", help="Directory for demo files."
+)
+@click.option(
+    "--speed",
+    "-s",
+    type=click.FloatRange(SPEED_MIN, SPEED_MAX),
+    default=1.0,
+    help="Speed factor (0.5-2.0).",
+)
 def demo(text, output_dir, speed):
     """Generate the same text with ALL registered voices for comparison."""
     from pathlib import Path
+
     voices = list_voices()
     if not voices:
         click.echo("No voices registered.")

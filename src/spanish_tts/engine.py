@@ -1,7 +1,6 @@
 """TTS engine wrapping Qwen3-TTS MLX for clone and design modes."""
 
 import logging
-import os
 import sys
 from collections.abc import Callable
 from datetime import datetime
@@ -54,9 +53,7 @@ def _apply_speed(audio: np.ndarray, speed: float, sample_rate: int) -> np.ndarra
 
     # Input contract: mono 1-D numpy array, non-empty, finite samples.
     if not isinstance(audio, np.ndarray):
-        raise ValueError(
-            f"_apply_speed expects numpy.ndarray, got {type(audio).__name__}"
-        )
+        raise ValueError(f"_apply_speed expects numpy.ndarray, got {type(audio).__name__}")
     if audio.ndim != 1:
         raise ValueError(
             f"_apply_speed expects mono 1-D audio, got shape {audio.shape}. "
@@ -85,7 +82,9 @@ def _apply_speed(audio: np.ndarray, speed: float, sample_rate: int) -> np.ndarra
     try:
         import librosa
     except ImportError:
-        logger.warning("librosa not installed; speed parameter ignored. Install with: pip install 'spanish-tts[speed]'")
+        logger.warning(
+            "librosa not installed; speed parameter ignored. Install with: pip install 'spanish-tts[speed]'"
+        )
         return audio
 
     stretched = librosa.effects.time_stretch(y=audio_f, rate=speed)
@@ -96,6 +95,7 @@ def _get_model(model_id: str):
     """Load MLX model with caching."""
     if model_id not in _model_cache:
         from mlx_audio.tts import load_model
+
         print(f"Loading model: {model_id}", file=sys.stderr)
         _model_cache[model_id] = load_model(model_id)
     return _model_cache[model_id]
@@ -114,8 +114,9 @@ def _resolve_output(output: str | None, prefix: str, output_dir: str | None = No
     return str(out_dir / f"{prefix}_{ts}.wav")
 
 
-def _collect_audio(results, stream: bool,
-                   on_chunk: Callable[[int, int, float], None] | None = None):
+def _collect_audio(
+    results, stream: bool, on_chunk: Callable[[int, int, float], None] | None = None
+):
     """Collect audio from a generator of GenerationResults.
 
     When stream=False, takes the first result (non-streaming behavior).
@@ -179,8 +180,7 @@ def generate_clone(
     if not ref_path.exists():
         raise FileNotFoundError(f"Reference audio not found: {ref_path}")
 
-    print(f"Cloning voice from: {ref_path}" + (" [streaming]" if stream else ""),
-          file=sys.stderr)
+    print(f"Cloning voice from: {ref_path}" + (" [streaming]" if stream else ""), file=sys.stderr)
     results = model.generate(
         text=text,
         lang_code="auto",
@@ -235,15 +235,24 @@ def generate_design(
     model = _get_model(model_id or MODELS["design"])
 
     lang_map = {
-        "Spanish": "spanish", "English": "english", "Chinese": "chinese",
-        "French": "french", "German": "german", "Italian": "italian",
-        "Portuguese": "portuguese", "Japanese": "japanese", "Korean": "korean",
+        "Spanish": "spanish",
+        "English": "english",
+        "Chinese": "chinese",
+        "French": "french",
+        "German": "german",
+        "Italian": "italian",
+        "Portuguese": "portuguese",
+        "Japanese": "japanese",
+        "Korean": "korean",
         "Russian": "russian",
     }
     lang_code = lang_map.get(language, "spanish")
 
-    print(f"Designing voice: '{instruct[:60]}...' (lang={lang_code})"
-          + (" [streaming]" if stream else ""), file=sys.stderr)
+    print(
+        f"Designing voice: '{instruct[:60]}...' (lang={lang_code})"
+        + (" [streaming]" if stream else ""),
+        file=sys.stderr,
+    )
     results = model.generate(
         text=text,
         lang_code=lang_code,
