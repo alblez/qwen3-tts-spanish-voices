@@ -1,5 +1,6 @@
 """TTS engine wrapping Qwen3-TTS MLX for clone and design modes."""
 
+import logging
 import os
 import sys
 from collections.abc import Callable
@@ -9,6 +10,10 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 
+logger = logging.getLogger(__name__)
+
+# Speed range constants
+SPEED_MIN, SPEED_MAX = 0.5, 2.0
 
 # Default MLX models
 MODELS = {
@@ -18,6 +23,36 @@ MODELS = {
 }
 
 _model_cache = {}
+
+
+def _apply_speed(audio: np.ndarray, speed: float, sample_rate: int) -> np.ndarray:
+    """Post-synthesis pitch-preserving time-stretch. No-op at speed=1.0.
+    
+    Args:
+        audio: Audio array (float32).
+        speed: Speed factor (0.5-2.0; rate > 1.0 speeds up).
+        sample_rate: Sample rate in Hz.
+    
+    Returns:
+        Time-stretched audio array. Falls back to unmodified audio if librosa unavailable.
+    
+    Raises:
+        ValueError: If speed outside 0.5-2.0.
+    """
+    if abs(speed - 1.0) < 1e-6:
+        return audio
+    if not (SPEED_MIN <= speed <= SPEED_MAX):
+        raise ValueError(f"speed out of range {SPEED_MIN}-{SPEED_MAX}: {speed}")
+    
+    try:
+        import librosa
+    except ImportError:
+        logger.warning("librosa not installed; speed parameter ignored. Install with: pip install 'spanish-tts[speed]'")
+        return audio
+    
+    audio_f = audio.astype(np.float32, copy=False)
+    stretched = librosa.effects.time_stretch(y=audio_f, rate=speed)
+    return stretched
 
 
 def _get_model(model_id: str):
@@ -90,7 +125,7 @@ def generate_clone(
         text: Text to synthesize.
         ref_audio: Path to reference audio file (5-10s, clean).
         ref_text: Transcript of the reference audio.
-        speed: Speed factor (0.8-1.3).
+        speed: Speed factor (0.5-2.0).
         output: Output file path (auto-generated if None).
         output_dir: Base output directory.
         model_id: Override model ID.
@@ -114,7 +149,7 @@ def generate_clone(
         lang_code="auto",
         ref_audio=str(ref_path),
         ref_text=ref_text,
-        speed=speed,
+        speed=speed,  # upstream no-op; real stretch is post-process
         stream=stream,
         streaming_interval=streaming_interval,
     )
@@ -123,6 +158,7 @@ def generate_clone(
     audio_np = _collect_audio(results, stream=stream, on_chunk=on_chunk)
 
     sample_rate = model.sample_rate
+    audio_np = _apply_speed(audio_np, speed, sample_rate)
     sf.write(output_path, audio_np, sample_rate)
 
     duration = len(audio_np) / sample_rate
@@ -148,7 +184,7 @@ def generate_design(
         text: Text to synthesize.
         instruct: Natural language description of the desired voice.
         language: Target language.
-        speed: Speed factor (0.8-1.3).
+        speed: Speed factor (0.5-2.0).
         output: Output file path (auto-generated if None).
         output_dir: Base output directory.
         model_id: Override model ID.
@@ -175,7 +211,7 @@ def generate_design(
         text=text,
         lang_code=lang_code,
         instruct=instruct,
-        speed=speed,
+        speed=speed,  # upstream no-op; real stretch is post-process
         stream=stream,
         streaming_interval=streaming_interval,
     )
@@ -184,6 +220,7 @@ def generate_design(
     audio_np = _collect_audio(results, stream=stream, on_chunk=on_chunk)
 
     sample_rate = model.sample_rate
+    audio_np = _apply_speed(audio_np, speed, sample_rate)
     sf.write(output_path, audio_np, sample_rate)
 
     duration = len(audio_np) / sample_rate

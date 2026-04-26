@@ -21,6 +21,16 @@ cd ~/Code/qwen3-tts-spanish-voices  # or wherever you cloned it
 pip install -e ".[mlx]"
 ```
 
+### Speed Control (Optional)
+
+For advanced speed control with pitch preservation via librosa, install the `[speed]` extra:
+
+```bash
+pip install -e ".[mlx,speed]"
+```
+
+If `librosa` is not installed, the speed parameter degrades gracefully: generation succeeds with speed=1.0 behavior and a log warning is printed. This allows the package to work without the optional dependency.
+
 ## Quick Start
 
 ```bash
@@ -33,8 +43,8 @@ spanish-tts say "Buenos días" --voice carlos_mx
 # Generate and auto-play
 spanish-tts say "El café colombiano es magnífico." --voice elena_mx --play
 
-# Adjust speed (0.8 = slow, 1.3 = fast)
-spanish-tts say "Rápido como el viento" --voice energetic_male --speed 1.2
+# Adjust speed (0.5 = slow, 2.0 = fast)
+spanish-tts say "Rápido como el viento" --voice energetic_male --speed 0.8
 
 # Custom output path
 spanish-tts say "Guardado aquí" --voice warm_female --output ~/my-audio.wav

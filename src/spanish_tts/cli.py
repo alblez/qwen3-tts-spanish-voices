@@ -9,11 +9,11 @@ from spanish_tts.config import (
     get_voice,
     list_voices,
 )
-from spanish_tts.engine import generate
+from spanish_tts.engine import generate, SPEED_MIN, SPEED_MAX
 
 
 @click.group()
-@click.version_option()
+@click.version_option(package_name="qwen3-tts-spanish-voices")
 def cli():
     """Curated Spanish TTS voices using Qwen3-TTS."""
     pass
@@ -22,7 +22,7 @@ def cli():
 @cli.command()
 @click.argument("text")
 @click.option("--voice", "-v", default="neutral_male", help="Voice name from registry.")
-@click.option("--speed", "-s", type=float, default=None, help="Speed factor (0.8-1.3).")
+@click.option("--speed", "-s", type=click.FloatRange(SPEED_MIN, SPEED_MAX), default=None, help="Speed factor (0.5-2.0).")
 @click.option("--output", "-o", default=None, help="Output .wav path.")
 @click.option("--play", "-p", is_flag=True, help="Auto-play with afplay after generating.")
 def say(text, voice, speed, output, play):
@@ -146,7 +146,8 @@ def remove(name):
 @cli.command()
 @click.argument("text")
 @click.option("--output-dir", "-d", default="/tmp/spanish-tts-demo", help="Directory for demo files.")
-def demo(text, output_dir):
+@click.option("--speed", "-s", type=click.FloatRange(SPEED_MIN, SPEED_MAX), default=1.0, help="Speed factor (0.5-2.0).")
+def demo(text, output_dir, speed):
     """Generate the same text with ALL registered voices for comparison."""
     from pathlib import Path
     voices = list_voices()
@@ -157,13 +158,13 @@ def demo(text, output_dir):
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
 
-    click.echo(f"Generating '{text[:50]}...' with {len(voices)} voices -> {out}/\n")
+    click.echo(f"Generating '{text[:50]}...' with {len(voices)} voices (speed={speed}) -> {out}/\n")
     for name, config in voices.items():
         try:
             result = generate(
                 text=text,
                 voice_config=config,
-                speed=1.0,
+                speed=speed,
                 output=str(out / f"{name}.wav"),
             )
             click.echo(f"  OK  {name:<20} -> {result}")

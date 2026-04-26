@@ -30,7 +30,7 @@ mcp = FastMCP("spanish-tts")
 def say(
     text: str,
     voice: str = "neutral_male",
-    speed: float = 1.0,
+    speed: float | None = None,
     output: str | None = None,
     stream: bool = False,
 ) -> dict:
@@ -39,7 +39,8 @@ def say(
     Args:
         text: Text to synthesize (Spanish).
         voice: Voice name from registry (default: neutral_male).
-        speed: Speed factor 0.8-1.3 (default: 1.0).
+        speed: Speed factor 0.5-2.0. If omitted, falls back to
+            voices.yaml `defaults.speed` (or 1.0). Matches CLI behaviour.
         output: Output .wav path (auto-generated if omitted).
         stream: Use streaming decode for lower memory on long texts (default: false).
 
@@ -50,8 +51,6 @@ def say(
         return {"error": "text is empty"}
     if len(text) > 10000:
         return {"error": f"text too long ({len(text)} chars, max 10000)"}
-    if not (0.5 <= speed <= 2.0):
-        return {"error": f"speed out of range 0.5-2.0: {speed}"}
 
     voice_config = get_voice(voice)
     if voice_config is None:
@@ -59,7 +58,9 @@ def say(
         return {"error": f"Voice '{voice}' not found. Available: {', '.join(available)}"}
 
     defaults = get_defaults()
-    effective_speed = speed or defaults.get("speed", 1.0)
+    effective_speed = speed if speed is not None else defaults.get("speed", 1.0)
+    if not (0.5 <= effective_speed <= 2.0):
+        return {"error": f"speed out of range 0.5-2.0: {effective_speed}"}
     output_dir = defaults.get("output_dir", "~/tts-output/spanish")
 
     def _on_chunk(idx: int, total_samples: int, est_duration: float) -> None:
@@ -119,18 +120,21 @@ def list_all_voices() -> dict:
 
 
 @mcp.tool()
-def demo(text: str, output_dir: str = "/tmp/spanish-tts-demo") -> dict:
+def demo(text: str, output_dir: str = "/tmp/spanish-tts-demo", speed: float = 1.0) -> dict:
     """Generate the same text with ALL registered voices for comparison.
 
     Args:
         text: Text to synthesize (Spanish).
         output_dir: Directory for output files (default: /tmp/spanish-tts-demo).
+        speed: Speed factor 0.5-2.0 (default: 1.0).
 
     Returns:
         Dict with 'results' list of per-voice outcomes.
     """
     if not text or not text.strip():
         return {"error": "text is empty"}
+    if not (0.5 <= speed <= 2.0):
+        return {"error": f"speed out of range 0.5-2.0: {speed}"}
 
     from pathlib import Path
 
@@ -147,7 +151,7 @@ def demo(text: str, output_dir: str = "/tmp/spanish-tts-demo") -> dict:
             path = generate(
                 text=text,
                 voice_config=config,
-                speed=1.0,
+                speed=speed,
                 output=str(out / f"{name}.wav"),
             )
             results.append({"voice": name, "path": path, "status": "ok"})
@@ -159,8 +163,8 @@ def demo(text: str, output_dir: str = "/tmp/spanish-tts-demo") -> dict:
 
 
 def _preload_models():
-    """Eagerly load common models so first tool calls are fast."""
-    from spanish_tts.engine import MODELS, _get_model
+    """Eagerly load common models + warm librosa so first tool calls are fast."""
+    from spanish_tts.engine import MODELS, _apply_speed, _get_model
 
     for mode in ("clone", "design"):
         model_id = MODELS[mode]
@@ -171,6 +175,18 @@ def _preload_models():
         except Exception as e:
             # Non-fatal: model will load on first tool call instead
             logger.warning("Pre-load of '%s' failed (will retry on first call): %s", mode, e)
+
+    # Warm librosa JIT so first `say` with speed != 1.0 doesn't pay the
+    # one-off ~18s time_stretch init cost. Graceful no-op if librosa
+    # isn't installed (the [speed] extra is optional).
+    logger.info("Warming librosa time-stretch...")
+    try:
+        import numpy as np
+
+        _apply_speed(np.zeros(24000, dtype=np.float32), 1.5, 24000)
+        logger.info("librosa warmup complete")
+    except Exception as e:
+        logger.warning("librosa warmup skipped: %s", e)
 
 
 def main():
