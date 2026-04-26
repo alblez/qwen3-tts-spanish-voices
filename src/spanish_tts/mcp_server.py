@@ -111,8 +111,12 @@ def list_all_voices() -> dict:
             if config.get("type") == "clone":
                 summary[name]["accent"] = config.get("accent", "")
             elif config.get("type") == "design":
-                instruct = config.get("instruct", "")
-                summary[name]["description"] = instruct[:80]
+                # Return the full instruct prompt. Truncating silently
+                # destroys the persona description — presets ship with
+                # 99-121 char instructs and clipping at 80 drops the
+                # trailing clause (tone/pacing/style) that defines the
+                # voice. Token cost is negligible; 4 presets total.
+                summary[name]["description"] = config.get("instruct", "")
         return {"voices": summary}
     except Exception as e:
         logger.error("list_voices() failed: %s", e, exc_info=True)
