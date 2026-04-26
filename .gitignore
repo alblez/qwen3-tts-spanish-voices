@@ -28,3 +28,7 @@ candidates.json
 # References are user-specific
 references/
 .opencode_task.md
+
+# Handover scratch files (session-local)
+HANDOVER_PROMPT.md
+REVIEW_STATE.md
