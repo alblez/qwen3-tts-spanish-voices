@@ -57,11 +57,29 @@ class TestScoreSpeakers:
     def speakers(self):
         return {
             "SPK001": [
-                {"duration": 8.0, "text": "Primera oracion corta", "country": "Mexico", "gender": "male", "audio_id": "a1"},
-                {"duration": 7.5, "text": "Segunda oracion un poco mas larga que la primera", "country": "Mexico", "gender": "male", "audio_id": "a2"},
+                {
+                    "duration": 8.0,
+                    "text": "Primera oracion corta",
+                    "country": "Mexico",
+                    "gender": "male",
+                    "audio_id": "a1",
+                },
+                {
+                    "duration": 7.5,
+                    "text": "Segunda oracion un poco mas larga que la primera",
+                    "country": "Mexico",
+                    "gender": "male",
+                    "audio_id": "a2",
+                },
             ],
             "SPK002": [
-                {"duration": 9.0, "text": "Una sola oracion", "country": "Spain", "gender": "female", "audio_id": "b1"},
+                {
+                    "duration": 9.0,
+                    "text": "Una sola oracion",
+                    "country": "Spain",
+                    "gender": "female",
+                    "audio_id": "b1",
+                },
             ],
         }
 

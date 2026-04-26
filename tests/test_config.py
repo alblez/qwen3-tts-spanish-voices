@@ -1,8 +1,5 @@
 """Tests for spanish_tts.config module."""
 
-import tempfile
-from pathlib import Path
-
 import pytest
 import yaml
 
