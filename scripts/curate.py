@@ -11,15 +11,12 @@ Usage:
 """
 
 import json
-import os
-import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
 import click
 import numpy as np
 import soundfile as sf
-
 
 DATASET_ID = "ciempiess/voxforge_spanish"
 
@@ -36,9 +33,9 @@ def _matches_filter(row, country=None, gender=None):
 def _find_speaker_clips(ds, speaker_id, min_duration, max_duration):
     """Find clips for a speaker within duration range."""
     return [
-        (i, row) for i, row in enumerate(ds)
-        if row["speaker_id"] == speaker_id
-        and min_duration <= row["duration"] <= max_duration
+        (i, row)
+        for i, row in enumerate(ds)
+        if row["speaker_id"] == speaker_id and min_duration <= row["duration"] <= max_duration
     ]
 
 
@@ -50,15 +47,17 @@ def _score_speakers(speakers):
         avg_dur = sum(c["duration"] for c in clips) / n_clips
         avg_text_len = sum(len(c["text"]) for c in clips) / n_clips
         best = max(clips, key=lambda c: len(c["text"]) * c["duration"])
-        scored.append({
-            "speaker_id": speaker_id,
-            "n_clips": n_clips,
-            "avg_duration": avg_dur,
-            "avg_text_len": avg_text_len,
-            "best_clip": best,
-            "country": clips[0]["country"],
-            "gender": clips[0]["gender"],
-        })
+        scored.append(
+            {
+                "speaker_id": speaker_id,
+                "n_clips": n_clips,
+                "avg_duration": avg_dur,
+                "avg_text_len": avg_text_len,
+                "best_clip": best,
+                "country": clips[0]["country"],
+                "gender": clips[0]["gender"],
+            }
+        )
     scored.sort(key=lambda s: (s["n_clips"], s["avg_text_len"]), reverse=True)
     return scored
 
@@ -66,6 +65,7 @@ def _score_speakers(speakers):
 def _load_dataset(with_audio=True):
     """Load VoxForge Spanish dataset (cached after first download)."""
     from datasets import load_dataset
+
     click.echo("Loading VoxForge Spanish dataset (3.4 GB, cached after first download)...")
     ds = load_dataset(DATASET_ID, split="train")
     if not with_audio:
@@ -77,6 +77,7 @@ def _load_dataset(with_audio=True):
 def _load_dataset_raw():
     """Load dataset in arrow format for raw audio bytes (bypass torchcodec)."""
     from datasets import load_dataset
+
     click.echo("Loading dataset with raw audio...")
     ds = load_dataset(DATASET_ID, split="train")
     return ds.with_format("arrow")
@@ -85,6 +86,7 @@ def _load_dataset_raw():
 def _decode_audio(ds_raw, idx):
     """Decode audio from raw arrow dataset using soundfile."""
     import io
+
     row = ds_raw[idx]
     audio_bytes = row.column("audio")[0].as_py()["bytes"]
     audio_array, sr = sf.read(io.BytesIO(audio_bytes))
@@ -126,7 +128,9 @@ def browse():
 
 
 @cli.command()
-@click.option("--country", default=None, help="Filter by country (mexico, spain, argentina, chile).")
+@click.option(
+    "--country", default=None, help="Filter by country (mexico, spain, argentina, chile)."
+)
 @click.option("--gender", default=None, type=click.Choice(["male", "female"]))
 @click.option("--min-duration", default=6.0, type=float, help="Minimum clip duration in seconds.")
 @click.option("--max-duration", default=12.0, type=float, help="Maximum clip duration in seconds.")
@@ -146,14 +150,16 @@ def pick(country, gender, min_duration, max_duration, limit):
             continue
         dur = row["duration"]
         if min_duration <= dur <= max_duration:
-            speakers[row["speaker_id"]].append({
-                "index": i,
-                "duration": dur,
-                "text": row["normalized_text"],
-                "country": row["country"],
-                "gender": row["gender"],
-                "audio_id": row["audio_id"],
-            })
+            speakers[row["speaker_id"]].append(
+                {
+                    "index": i,
+                    "duration": dur,
+                    "text": row["normalized_text"],
+                    "country": row["country"],
+                    "gender": row["gender"],
+                    "audio_id": row["audio_id"],
+                }
+            )
 
     if not speakers:
         click.echo("No speakers found matching criteria.")
@@ -162,7 +168,9 @@ def pick(country, gender, min_duration, max_duration, limit):
     scored = _score_speakers(speakers)
 
     click.echo(f"\nTop {limit} candidates ({country or 'any'}, {gender or 'any'}):")
-    click.echo(f"{'SPEAKER':<14} {'COUNTRY':<14} {'CLIPS':<7} {'AVG_DUR':<9} {'BEST_DUR':<10} {'BEST_TEXT'}")
+    click.echo(
+        f"{'SPEAKER':<14} {'COUNTRY':<14} {'CLIPS':<7} {'AVG_DUR':<9} {'BEST_DUR':<10} {'BEST_TEXT'}"
+    )
     click.echo("-" * 100)
     for s in scored[:limit]:
         best = s["best_clip"]
@@ -182,8 +190,12 @@ def pick(country, gender, min_duration, max_duration, limit):
 @cli.command()
 @click.argument("speaker_id")
 @click.option("--name", required=True, help="Voice name for the registry (e.g. carlos_mx).")
-@click.option("--clip-index", default=None, type=int,
-              help="Specific dataset index. If not given, picks the best clip.")
+@click.option(
+    "--clip-index",
+    default=None,
+    type=int,
+    help="Specific dataset index. If not given, picks the best clip.",
+)
 @click.option("--min-duration", default=6.0, type=float)
 @click.option("--max-duration", default=12.0, type=float)
 def export(speaker_id, name, clip_index, min_duration, max_duration):
@@ -194,7 +206,9 @@ def export(speaker_id, name, clip_index, min_duration, max_duration):
         # Use specific clip
         row = ds_meta[clip_index]
         if row["speaker_id"] != speaker_id:
-            click.echo(f"Warning: index {clip_index} belongs to {row['speaker_id']}, not {speaker_id}")
+            click.echo(
+                f"Warning: index {clip_index} belongs to {row['speaker_id']}, not {speaker_id}"
+            )
         best_idx = clip_index
         meta = row
     else:
@@ -206,7 +220,9 @@ def export(speaker_id, name, clip_index, min_duration, max_duration):
             return
 
         # Pick longest text within duration range
-        best_idx, meta = max(candidates, key=lambda x: len(x[1]["normalized_text"]) * x[1]["duration"])
+        best_idx, meta = max(
+            candidates, key=lambda x: len(x[1]["normalized_text"]) * x[1]["duration"]
+        )
         click.echo(f"Selected clip index {best_idx}: {meta['duration']:.1f}s")
 
     # Extract audio via raw bytes
@@ -238,7 +254,7 @@ def export(speaker_id, name, clip_index, min_duration, max_duration):
     click.echo(f"  Text:    {meta['normalized_text']}")
     click.echo(f"  Country: {meta['country']}")
     click.echo(f"  Gender:  {meta['gender']}")
-    click.echo(f"\nUse: spanish-tts say \"Hola mundo\" --voice {name}")
+    click.echo(f'\nUse: spanish-tts say "Hola mundo" --voice {name}')
 
 
 @cli.command("listen")
@@ -269,9 +285,9 @@ def listen(speaker_id, limit, min_duration, max_duration):
 
     for j, (idx, meta) in enumerate(candidates):
         audio_array, sr = _decode_audio(ds_full, idx)
-        out_path = out_dir / f"{j+1}_{meta['audio_id']}.wav"
+        out_path = out_dir / f"{j + 1}_{meta['audio_id']}.wav"
         sf.write(str(out_path), audio_array, sr)
-        click.echo(f"  [{j+1}] {out_path}")
+        click.echo(f"  [{j + 1}] {out_path}")
         click.echo(f"      {meta['duration']:.1f}s: {meta['normalized_text'][:80]}")
 
     click.echo(f"\nPreview: afplay {out_dir}/1_*.wav")
