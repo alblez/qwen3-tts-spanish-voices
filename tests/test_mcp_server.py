@@ -107,3 +107,93 @@ def test_say_accepts_relative_path_inside_output_dir(bundled_presets, tmp_path, 
     resolved = captured["output"]
     assert resolved.startswith(str(tmp_path.resolve()))
     assert resolved.endswith("sub/out.wav")
+
+
+def test_say_rejects_null_byte(bundled_presets, tmp_path, monkeypatch):
+    """Null bytes in output must be rejected structurally, before
+    pathlib resolves them into a ValueError that escapes the tool's
+    error-dict contract.
+    """
+    mcp = bundled_presets
+    monkeypatch.setattr(
+        mcp,
+        "generate",
+        lambda *a, **kw: pytest.fail("generate() must not be called for rejected path"),
+    )
+    monkeypatch.setattr(mcp, "get_defaults", lambda: {"speed": 1.0, "output_dir": str(tmp_path)})
+
+    result = mcp.say(text="hola", voice="neutral_male", output="foo\x00.wav")
+    assert "error" in result
+
+
+def test_say_rejects_empty_output_string(bundled_presets, tmp_path, monkeypatch):
+    mcp = bundled_presets
+    monkeypatch.setattr(
+        mcp,
+        "generate",
+        lambda *a, **kw: pytest.fail("generate() must not be called for rejected path"),
+    )
+    monkeypatch.setattr(mcp, "get_defaults", lambda: {"speed": 1.0, "output_dir": str(tmp_path)})
+
+    result = mcp.say(text="hola", voice="neutral_male", output="")
+    assert "error" in result
+
+
+def test_say_rejects_symlink_escape(bundled_presets, tmp_path, monkeypatch):
+    """A symlink inside output_dir that points outside the safe root
+    must be caught by resolve()+relative_to(). This is the canonical
+    path-traversal vector that naive os.path.normpath-based guards miss.
+    """
+    outside = tmp_path.parent / "outside-sandbox"
+    outside.mkdir(exist_ok=True)
+    link = tmp_path / "escape_link"
+    link.symlink_to(outside)
+
+    mcp = bundled_presets
+    monkeypatch.setattr(
+        mcp,
+        "generate",
+        lambda *a, **kw: pytest.fail("generate() must not be called for rejected path"),
+    )
+    monkeypatch.setattr(mcp, "get_defaults", lambda: {"speed": 1.0, "output_dir": str(tmp_path)})
+
+    result = mcp.say(text="hola", voice="neutral_male", output="escape_link/evil.wav")
+    assert "error" in result
+    assert "escapes" in result["error"]
+
+
+def test_say_accepts_absolute_path_inside_output_dir(bundled_presets, tmp_path, monkeypatch):
+    """Absolute paths that already resolve inside safe_root must be
+    accepted (pins the branch the first batch of tests missed).
+    """
+    mcp = bundled_presets
+    captured = {}
+
+    def fake_generate(**kwargs):
+        captured.update(kwargs)
+        return kwargs["output"]
+
+    monkeypatch.setattr(mcp, "generate", fake_generate)
+    monkeypatch.setattr(mcp, "get_defaults", lambda: {"speed": 1.0, "output_dir": str(tmp_path)})
+
+    target = str(tmp_path.resolve() / "ok.wav")
+    result = mcp.say(text="hola", voice="neutral_male", output=target)
+    assert "error" not in result, result
+    assert captured["output"] == target
+
+
+def test_say_rejects_safe_root_itself(bundled_presets, tmp_path, monkeypatch):
+    """output that resolves to the output_dir itself is a directory,
+    not a filename. Reject with a clear message rather than let
+    engine.generate fail opaquely downstream.
+    """
+    mcp = bundled_presets
+    monkeypatch.setattr(
+        mcp,
+        "generate",
+        lambda *a, **kw: pytest.fail("generate() must not be called for rejected path"),
+    )
+    monkeypatch.setattr(mcp, "get_defaults", lambda: {"speed": 1.0, "output_dir": str(tmp_path)})
+
+    result = mcp.say(text="hola", voice="neutral_male", output=".")
+    assert "error" in result
