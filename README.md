@@ -2,7 +2,7 @@
 
 Curated Spanish TTS voices powered by [Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS) ([HuggingFace models](https://huggingface.co/collections/Qwen/qwen3-tts)) running locally on Apple Silicon via MLX.
 
-14 voices out of the box — 12 cloned from real speakers (VoxForge Spanish corpus) covering Spain, Mexico, Argentina, Chile, and Ibero-American accents, plus 2 designed voices for quick use without reference audio.
+4 designed voices ready out of the box. Up to 10 additional clone voices can be built locally from the VoxForge Spanish corpus using `scripts/curate.py` — covering Spain, Mexico, Argentina, Chile, and Ibero-American accents. See `scripts/curate.py --help`.
 
 ## Requirements
 
