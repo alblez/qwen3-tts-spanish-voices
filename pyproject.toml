@@ -39,3 +39,23 @@ spanish-tts = "spanish_tts.cli:cli"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+# E/W pycodestyle, F pyflakes, I isort, UP pyupgrade, B bugbear
+select = ["E", "F", "W", "I", "UP", "B"]
+# Noise we don't want: long lines (format handles most; keep E501 off for now)
+# and unused module imports inside __init__ (we use them as re-exports).
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/spanish_tts/__init__.py" = ["F401"]
+"tests/**" = ["B011"]  # pytest asserts
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
