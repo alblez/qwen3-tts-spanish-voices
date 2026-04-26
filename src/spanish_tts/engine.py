@@ -19,7 +19,6 @@ SPEED_MIN, SPEED_MAX = 0.5, 2.0
 MODELS = {
     "clone": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit",
     "design": "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit",
-    "custom": "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit",
 }
 
 _model_cache = {}
