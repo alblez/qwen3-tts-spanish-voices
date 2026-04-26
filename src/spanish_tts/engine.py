@@ -43,7 +43,9 @@ def _apply_speed(audio: np.ndarray, speed: float, sample_rate: int) -> np.ndarra
     Raises:
         ValueError: If speed is outside 0.5-2.0, audio is not a numpy array,
             audio is not 1-D (mono), audio is empty, audio contains NaN/inf,
-            or audio length is below the librosa STFT hop threshold.
+            or audio length is below the librosa STFT window (n_fft=2048).
+            NOTE: validation is skipped on the speed==1.0 no-op fast path
+            for backward compatibility — callers should not rely on that.
     """
     if abs(speed - 1.0) < 1e-6:
         return audio
@@ -63,8 +65,10 @@ def _apply_speed(audio: np.ndarray, speed: float, sample_rate: int) -> np.ndarra
     if audio.size == 0:
         raise ValueError("_apply_speed got empty audio array")
 
-    # librosa.effects.time_stretch defaults to n_fft=2048; shorter inputs
-    # crash inside the STFT with a cryptic error. Gate explicitly.
+    # librosa.effects.time_stretch uses STFT with default n_fft=2048.
+    # Signals shorter than that either raise inside the STFT (very short
+    # inputs, below reflect-padding threshold) or produce degenerate
+    # phase-vocoder output. Gate explicitly with a clear message.
     _MIN_SAMPLES_FOR_STFT = 2048
     if audio.size < _MIN_SAMPLES_FOR_STFT:
         raise ValueError(

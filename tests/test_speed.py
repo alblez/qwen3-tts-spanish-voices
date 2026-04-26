@@ -308,24 +308,53 @@ class TestApplySpeedInputGuards:
         with pytest.raises(ValueError, match="at least"):
             _apply_speed(short, 1.5, 24000)
 
-    @pytest.mark.skipif(not HAS_LIBROSA, reason="librosa required")
     def test_rejects_nan(self):
+        # Finite-check runs before librosa import, so this test doesn't
+        # need the librosa extra installed to be meaningful.
         bad = np.full(4096, np.nan, dtype=np.float32)
         with pytest.raises(ValueError, match="non-finite"):
             _apply_speed(bad, 1.5, 24000)
 
-    @pytest.mark.skipif(not HAS_LIBROSA, reason="librosa required")
     def test_rejects_inf(self):
         bad = np.zeros(4096, dtype=np.float32)
         bad[100] = np.inf
         with pytest.raises(ValueError, match="non-finite"):
             _apply_speed(bad, 1.5, 24000)
 
-    def test_noop_path_skips_guards(self):
-        # speed=1.0 returns immediately without validation — preserves
-        # backward compat for any callers that hand in odd shapes but
-        # only ever use the no-op path.
+    def test_noop_path_is_early_return_before_guards(self):
+        # !!! DO NOT "FIX" BY MOVING GUARDS ABOVE THE speed==1.0 CHECK !!!
+        #
+        # INTENTIONAL backward-compat: speed==1.0 is a fast-path no-op that
+        # returns the input unchanged WITHOUT running any shape/dtype/finite
+        # validation. This is not an endorsement of stereo or NaN input —
+        # it is a contract pin so that callers who already pass pre-validated
+        # data (and never actually stretch) keep working after ENG-1.
+        #
+        # If you want to tighten the no-op path too, that is a SEPARATE
+        # change with a migration plan + test updates across the repo.
         weird = np.zeros((2, 10), dtype=np.float32)
         result = _apply_speed(weird, 1.0, 24000)
         assert result is weird
+
+    def test_boundary_2048_samples_accepted(self):
+        # Exactly 2048 samples (librosa STFT n_fft default) must not raise
+        # the length guard. We deliberately skip running librosa here — the
+        # guard itself is the contract. A slice of a real signal keeps
+        # non-finite guard happy too.
+        audio = np.sin(np.linspace(0, 2 * np.pi, 2048)).astype(np.float32)
+        # Must not raise ValueError about length:
+        if HAS_LIBROSA:
+            # End-to-end happy path if librosa is available.
+            out = _apply_speed(audio, 1.5, 24000)
+            assert out.ndim == 1
+        else:
+            # Without librosa, the function logs a warning and returns
+            # input unchanged — still must pass the length guard.
+            out = _apply_speed(audio, 1.5, 24000)
+            assert out is audio
+
+    def test_boundary_2047_samples_rejected(self):
+        audio = np.zeros(2047, dtype=np.float32)
+        with pytest.raises(ValueError, match="at least"):
+            _apply_speed(audio, 1.5, 24000)
 
