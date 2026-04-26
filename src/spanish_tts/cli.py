@@ -9,7 +9,7 @@ from spanish_tts.config import (
     get_voice,
     list_voices,
 )
-from spanish_tts.engine import generate
+from spanish_tts.engine import generate, SPEED_MIN, SPEED_MAX
 
 
 @click.group()
@@ -22,7 +22,7 @@ def cli():
 @cli.command()
 @click.argument("text")
 @click.option("--voice", "-v", default="neutral_male", help="Voice name from registry.")
-@click.option("--speed", "-s", type=float, default=None, help="Speed factor (0.5-2.0).")
+@click.option("--speed", "-s", type=click.FloatRange(SPEED_MIN, SPEED_MAX), default=None, help="Speed factor (0.5-2.0).")
 @click.option("--output", "-o", default=None, help="Output .wav path.")
 @click.option("--play", "-p", is_flag=True, help="Auto-play with afplay after generating.")
 def say(text, voice, speed, output, play):
