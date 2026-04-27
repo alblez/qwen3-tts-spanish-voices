@@ -8,6 +8,7 @@ import pytest
 
 from spanish_tts.engine import (
     MODELS,
+    TtsResult,
     _cache_lock,
     _clear_cache,
     _generate_lock,
@@ -27,6 +28,30 @@ class TestModels:
     def test_model_ids_are_mlx(self):
         for key, model_id in MODELS.items():
             assert "mlx-community" in model_id, f"{key} model should be mlx-community"
+
+
+class TestTtsResult:
+    def test_is_dataclass(self):
+        r = TtsResult(path="/tmp/foo.wav", duration_seconds=1.5)
+        assert isinstance(r, TtsResult)
+
+    def test_str_returns_path(self):
+        r = TtsResult(path="/tmp/foo.wav", duration_seconds=1.5)
+        assert str(r) == "/tmp/foo.wav"
+        assert str(r) == r.path
+
+    def test_duration_seconds_stored(self):
+        r = TtsResult(path="/tmp/foo.wav", duration_seconds=2.345)
+        assert r.duration_seconds == pytest.approx(2.345)
+
+    def test_fstring_interpolation(self):
+        r = TtsResult(path="/tmp/foo.wav", duration_seconds=1.0)
+        assert f"{r}" == "/tmp/foo.wav"
+
+    def test_frozen(self):
+        r = TtsResult(path="/tmp/foo.wav", duration_seconds=1.0)
+        with pytest.raises(AttributeError):  # frozen dataclass raises FrozenInstanceError
+            r.path = "/other"  # type: ignore[misc]
 
 
 class TestGenerateCloneSignature:
