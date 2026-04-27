@@ -14,6 +14,7 @@ Hermes config.yaml:
 """
 
 import logging
+import math
 import sys
 from pathlib import Path
 
@@ -55,22 +56,39 @@ def say(
         stream: Use streaming decode for lower memory on long texts (default: false).
 
     Returns:
-        Dict with 'path' and 'duration_seconds', or 'error'.
+        Dict with 'path' and 'duration_seconds', or {'error': ..., 'code': ...}.
+        The 'code' key is a stable enum value (see CONTRACT.md).
     """
     if not text or not text.strip():
-        return {"error": "text is empty"}
+        return {"error": "text is empty", "code": "text_empty"}
+    if "\x00" in text:
+        return {"error": "text contains NUL byte", "code": "text_nul"}
     if len(text) > 10000:
-        return {"error": f"text too long ({len(text)} chars, max 10000)"}
+        return {
+            "error": f"text too long ({len(text)} chars, max 10000)",
+            "code": "text_too_long",
+        }
 
     voice_config = get_voice(voice)
     if voice_config is None:
         available = list(list_voices().keys())
-        return {"error": f"Voice '{voice}' not found. Available: {', '.join(available)}"}
+        return {
+            "error": f"Voice '{voice}' not found. Available: {', '.join(available)}",
+            "code": "voice_not_found",
+        }
 
     defaults = get_defaults()
     effective_speed = speed if speed is not None else defaults.get("speed", 1.0)
+    if not math.isfinite(effective_speed):
+        return {
+            "error": f"speed must be a finite number, got {effective_speed}",
+            "code": "speed_not_finite",
+        }
     if not (0.5 <= effective_speed <= 2.0):
-        return {"error": f"speed out of range 0.5-2.0: {effective_speed}"}
+        return {
+            "error": f"speed out of range 0.5-2.0: {effective_speed}",
+            "code": "speed_out_of_range",
+        }
     output_dir = defaults.get("output_dir", "~/tts-output/spanish")
 
     # MCP-1 path-traversal hardening. If the caller supplied `output`,
@@ -83,7 +101,10 @@ def say(
         # empty string, NUL byte (pathlib would raise mid-resolve with
         # a ValueError that escapes our error-dict contract).
         if output == "" or "\x00" in output:
-            return {"error": f"output path {output!r} is not a valid filename"}
+            return {
+                "error": f"output path {output!r} is not a valid filename",
+                "code": "path_invalid",
+            }
 
         safe_root = Path(output_dir).expanduser().resolve()
         # Join then resolve so both relative and absolute `output`
@@ -97,7 +118,10 @@ def say(
                 else Path(output).resolve()
             )
         except (OSError, ValueError) as e:
-            return {"error": f"output path {output!r} cannot be resolved: {e}"}
+            return {
+                "error": f"output path {output!r} cannot be resolved: {e}",
+                "code": "path_invalid",
+            }
 
         # Reject writing to safe_root itself — it is a directory and
         # engine.generate would fail downstream with a less clear error.
@@ -106,7 +130,8 @@ def say(
                 "error": (
                     f"output path {output!r} resolves to output_dir "
                     "itself; supply a filename under it or omit `output`."
-                )
+                ),
+                "code": "path_is_dir",
             }
 
         try:
@@ -117,7 +142,8 @@ def say(
                     f"output path {output!r} escapes output_dir "
                     f"{str(safe_root)!r}. MCP refuses path traversal; "
                     "use a path relative to output_dir or omit `output`."
-                )
+                ),
+                "code": "path_escape",
             }
         output = str(candidate)
 
@@ -136,7 +162,7 @@ def say(
         )
     except Exception as e:
         logger.error("generate() failed: %s", e, exc_info=True)
-        return {"error": f"Generation failed: {e}"}
+        return {"error": f"Generation failed: {e}", "code": "generation_failed"}
 
     return {"path": result.path, "duration_seconds": round(result.duration_seconds, 2)}
 
@@ -170,7 +196,7 @@ def list_all_voices() -> dict:
         return {"voices": summary}
     except Exception as e:
         logger.error("list_voices() failed: %s", e, exc_info=True)
-        return {"error": f"Failed to list voices: {e}"}
+        return {"error": f"Failed to list voices: {e}", "code": "generation_failed"}
 
 
 @mcp.tool()
@@ -183,18 +209,20 @@ def demo(text: str, output_dir: str = "/tmp/spanish-tts-demo", speed: float = 1.
         speed: Speed factor 0.5-2.0 (default: 1.0).
 
     Returns:
-        Dict with 'results' list of per-voice outcomes.
+        Dict with 'results' list of per-voice outcomes, or {'error': ..., 'code': ...}.
     """
     if not text or not text.strip():
-        return {"error": "text is empty"}
+        return {"error": "text is empty", "code": "text_empty"}
+    if not math.isfinite(speed):
+        return {"error": f"speed must be a finite number, got {speed}", "code": "speed_not_finite"}
     if not (0.5 <= speed <= 2.0):
-        return {"error": f"speed out of range 0.5-2.0: {speed}"}
+        return {"error": f"speed out of range 0.5-2.0: {speed}", "code": "speed_out_of_range"}
 
     from pathlib import Path
 
     voices = list_voices()
     if not voices:
-        return {"error": "No voices registered"}
+        return {"error": "No voices registered", "code": "voices_empty"}
 
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)

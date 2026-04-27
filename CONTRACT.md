@@ -32,22 +32,30 @@ Synthesise speech from text.
 > never `null` / `None`. Callers may rely on this field being present and
 > numeric on every successful `say` response.
 
-**Error response**
+**Error response** (U3-17: `code` field added)
 
 ```json
-{"error": "<human-readable message>"}
+{"error": "<human-readable message>", "code": "<stable-enum>"}
 ```
 
-Known error messages (stable strings):
+The `error` string is human-readable and may change across versions.
+The `code` field is **stable** — callers should branch on `code`, not `error`.
 
-| Condition | `error` value |
-|-----------|--------------|
-| Text is empty / whitespace-only | `"text is empty"` |
-| Text contains NUL byte | `"text contains NUL byte"` |
-| Text exceeds 10 000 characters | `"text too long (N chars, max 10000)"` |
-| Voice not found in registry | `"voice '<name>' not found"` |
-| Output path outside safe root | `"output path not allowed"` |
-| Generation engine failure | `"generation failed: <reason>"` |
+### Error sentinel — `code` values
+
+| `code` | Returned when |
+|---|---|
+| `text_empty` | `text` is `None`, empty, or whitespace-only |
+| `text_nul` | `text` contains a NUL byte (`\x00`) |
+| `text_too_long` | `text` exceeds 10 000 characters |
+| `voice_not_found` | `voice` is not registered |
+| `speed_out_of_range` | `speed` outside 0.5–2.0 |
+| `speed_not_finite` | `speed` is NaN or ±infinity |
+| `path_invalid` | `output` is an empty string, contains NUL, or cannot be resolved |
+| `path_escape` | `output` resolves outside `output_dir` (path-traversal attempt) |
+| `path_is_dir` | `output` resolves to `output_dir` itself (a directory) |
+| `generation_failed` | engine raised an unexpected exception |
+| `voices_empty` | `demo` called with zero registered voices |
 
 ---
 
@@ -78,7 +86,7 @@ Return all registered voices.
 **Error response**
 
 ```json
-{"error": "<human-readable message>"}
+{"error": "<human-readable message>", "code": "<stable-enum>"}
 ```
 
 ---
@@ -115,7 +123,7 @@ Partial failure is normal: if one voice fails the others still run.
 **Error response** (whole-tool failure, not per-voice)
 
 ```json
-{"error": "<human-readable message>"}
+{"error": "<human-readable message>", "code": "<stable-enum>"}
 ```
 
 ---
