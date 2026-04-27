@@ -16,6 +16,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Logger hygiene: `generate_design` logs instruct body at `DEBUG` (not `INFO`) to avoid voice-persona PII in production logs (U3-18).
 - `_sandbox_path` helper in `mcp_server.py` — factors out MCP-1 path-traversal logic. Applied to `say(output=...)` and `demo(output_dir=...)` (U3-7).
 - `demo` now rejects text > 10 000 chars (`text_too_long` code) and sandboxes `output_dir` to `$HOME` or the system temp directory (U3-7).
+- `MODEL_REVISIONS` dict in `engine.py` with pinned HF commit SHAs for both models. `_get_model` passes `revision=` to `mlx_audio.tts.load` (U3-9).
+- `CONTRIBUTING.md` documents the model-revision bump process (U3-9).
 - `TtsResult` exported from `spanish_tts.__init__` (U3-19).
 - `CONTRACT.md` — stable JSON shapes + backward-compat policy for the MCP server (U3-5 part 1).
 - `LICENSE` file with full MIT text; PEP 639 migration in `pyproject.toml` (U3-1).

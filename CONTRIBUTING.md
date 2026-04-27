@@ -59,10 +59,27 @@ docs(license): U3-1 ADD LICENSE FILE + PEP 639 MIGRATION
 
 ## Bumping HF model revisions (U3-9)
 
-1. Find known-good commit SHA on HF for the target model.
-2. Update the `MODELS` dict in `src/spanish_tts/engine.py`.
-3. Add a `CHANGELOG.md [Unreleased]` entry.
-4. Open a PR; CI validates the new revision on Ubuntu (mocked) and macOS (real).
+`engine.py` pins both models to specific commit SHAs in `MODEL_REVISIONS`.
+This prevents silent breakage when the upstream HF repo is updated.
+
+### Bump process
+
+1. **Find the new SHA** on the model's HF page → *Files and versions* → *Commits*
+   (or use the HF API: `python -c "from huggingface_hub import model_info; print(model_info('mlx-community/<id>').sha)"`).
+2. **Verify the commit** on the HF model card: check README diff, config.json,
+   and tokenizer for unexpected changes.
+3. **Update** `MODEL_REVISIONS` in `src/spanish_tts/engine.py`.
+4. **Test locally** on Apple Silicon:
+   ```bash
+   conda run -n qwen3-tts pytest -m "requires_mlx" -q
+   ```
+5. **Open a PR** with a `CHANGELOG.md [Unreleased]` entry:
+   ```
+   ### Changed
+   - Bump clone/design model revision to <new-sha> (tested on <date>).
+   ```
+6. CI validates the new revision on Ubuntu (mocked) and macOS (real, if CI macOS
+   job is enabled after U3-13).
 
 ## Voice schema
 

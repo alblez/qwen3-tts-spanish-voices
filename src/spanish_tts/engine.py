@@ -74,6 +74,22 @@ MODELS = {
     "design": "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit",
 }
 
+# Known-good Hugging Face commit SHAs for each model.
+#
+# These are verified-good revision hashes. Passing revision= to
+# mlx_audio.tts.load() pins the download to this exact commit and
+# prevents silent breakage when the repo is updated.
+#
+# Bump process (see CONTRIBUTING.md § "Updating model revisions"):
+#   1. Verify the new commit on the HF model card (check README, config).
+#   2. Update the SHA below.
+#   3. Test locally: `conda run -n qwen3-tts pytest -m requires_mlx -q`.
+#   4. Add a CHANGELOG entry under [Unreleased] → ### Changed.
+MODEL_REVISIONS: dict[str, str] = {
+    "clone": "e7dd0585652209fa0d7783659aad4e8a324de11c",
+    "design": "f90d617701d9f7f4ca499291e0b57f2b3c2fd2ee",
+}
+
 # Thread-safety: _model_cache is shared across threads.
 # _cache_lock guards the cache dict — prevents duplicate loads when two threads
 # call _get_model simultaneously for the same model_id.
@@ -166,14 +182,34 @@ def _get_model(model_id: str):
     Uses a module-level lock to ensure at most one thread loads a given
     model_id; subsequent callers receive the cached instance immediately
     without touching the MLX runtime.
+
+    The model is loaded at the pinned revision in :data:`MODEL_REVISIONS`
+    (if a matching entry exists), otherwise at the repo's default branch.
     """
     with _cache_lock:
         if model_id not in _model_cache:
-            from mlx_audio.tts import load_model
+            from mlx_audio.tts import load
 
-            logger.info("Loading model: %s", model_id)
-            _model_cache[model_id] = load_model(model_id)
+            revision = _revision_for(model_id)
+            logger.info("Loading model: %s (revision=%s)", model_id, revision or "default")
+            _model_cache[model_id] = load(model_id, revision=revision)
         return _model_cache[model_id]
+
+
+def _revision_for(model_id: str) -> str | None:
+    """Return the pinned revision SHA for *model_id*, or None.
+
+    Looks up ``model_id`` in :data:`MODEL_REVISIONS` by both the full ID
+    and by the short key (``"clone"``/``"design"``).
+    """
+    # Direct match first (future custom model IDs).
+    if model_id in MODEL_REVISIONS:
+        return MODEL_REVISIONS[model_id]
+    # Fall back to short-key lookup via MODELS inverse.
+    for key, mid in MODELS.items():
+        if mid == model_id:
+            return MODEL_REVISIONS.get(key)
+    return None
 
 
 def _resolve_output(output: str | None, prefix: str, output_dir: str | None = None) -> str:
