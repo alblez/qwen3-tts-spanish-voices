@@ -10,6 +10,13 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+---
+
+## [0.3.0] — 2026-04-27
+
+Umbrella #3, Waves 1–6: all 6 HIGH boxes (U3-1..U3-6) + 14 MED boxes + L-pack.
+Breaking change: `generate_*` engine entry points return `TtsResult` instead of `str`.
+
 ### Added
 - `_validate_text` helper in `engine.py` — rejects empty/NUL/too-long text with `ValueError`. Called from `generate_clone` and `generate_design` (U3-17).
 - `TtsResult` dataclass in `engine.py` — frozen, `path: str`, `duration_seconds: float`, `__str__` returns path for backward-compat (U3-19).
