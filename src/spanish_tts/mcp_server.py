@@ -5,18 +5,20 @@ can call them without subprocess overhead. The MLX model stays loaded
 across calls via engine._model_cache.
 
 Usage:
-    python -m spanish_tts.mcp_server
+    python -m spanish_tts.mcp_server          # or:
+    spanish-tts-mcp                            # console script
 
 Hermes config.yaml:
     mcp_servers:
       spanish-tts:
-        command: ["conda", "run", "-n", "qwen3-tts", "python", "-m", "spanish_tts.mcp_server"]
+        command: ["conda", "run", "-n", "qwen3-tts", "spanish-tts-mcp"]
 """
 
 import logging
 import math
 import sys
 import tempfile
+import threading
 from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
@@ -320,14 +322,18 @@ def _preload_models():
 
 
 def main():
-    """Entry point for python -m spanish_tts.mcp_server."""
+    """Entry point for python -m spanish_tts.mcp_server or the spanish-tts-mcp script."""
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
         stream=sys.stderr,
     )
-    logger.info("Starting spanish-tts MCP server")
-    _preload_models()
+    logger.info("Starting spanish-tts MCP server v%s", __version__)
+    # Start preload in a background daemon thread so the stdio MCP handshake
+    # (list_tools, initialize) responds immediately without waiting for model
+    # downloads.  mcp.run() is a blocking call — preload must not block it.
+    t = threading.Thread(target=_preload_models, daemon=True, name="preload-models")
+    t.start()
     mcp.run()
 
 
