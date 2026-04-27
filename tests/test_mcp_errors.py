@@ -139,9 +139,11 @@ class TestSayGenerateException:
         monkeypatch.setattr(
             mcp, "get_defaults", lambda: {"speed": 1.0, "output_dir": str(tmp_path)}
         )
-        monkeypatch.setattr(
-            mcp, "generate", lambda **kw: (_ for _ in ()).throw(RuntimeError("boom"))
-        )
+
+        def _raise_boom(**kw):
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(mcp, "generate", _raise_boom)
         result = mcp.say(text="hola", voice="neutral_male")
         assert "error" in result
         assert "Generation failed" in result["error"]
@@ -153,9 +155,11 @@ class TestSayGenerateException:
         monkeypatch.setattr(
             mcp, "get_defaults", lambda: {"speed": 1.0, "output_dir": str(tmp_path)}
         )
-        monkeypatch.setattr(
-            mcp, "generate", lambda **kw: (_ for _ in ()).throw(RuntimeError("kaboom"))
-        )
+
+        def _raise_kaboom(**kw):
+            raise RuntimeError("kaboom")
+
+        monkeypatch.setattr(mcp, "generate", _raise_kaboom)
         with caplog.at_level(logging.ERROR, logger="spanish_tts.mcp_server"):
             mcp.say(text="hola", voice="neutral_male")
         assert any("generate() failed" in r.message for r in caplog.records)
@@ -262,9 +266,11 @@ class TestListAllVoicesErrorBranches:
 
     def test_list_voices_exception_returns_error_dict(self, bundled_presets, monkeypatch, caplog):
         mcp = bundled_presets
-        monkeypatch.setattr(
-            mcp, "list_voices", lambda **kw: (_ for _ in ()).throw(RuntimeError("broken"))
-        )
+
+        def _raise_broken(**kw):
+            raise RuntimeError("broken")
+
+        monkeypatch.setattr(mcp, "list_voices", _raise_broken)
         with caplog.at_level(logging.ERROR, logger="spanish_tts.mcp_server"):
             result = mcp.list_all_voices()
         assert "error" in result
@@ -324,15 +330,12 @@ class TestDemoErrorBranches:
         mcp = bundled_presets
         first = list(mcp.list_voices().keys())[0]
 
-        monkeypatch.setattr(
-            mcp,
-            "generate",
-            lambda **kw: (
-                (_ for _ in ()).throw(RuntimeError("boom"))
-                if kw["output"].endswith(f"{first}.wav")
-                else _make_tts_result(kw["output"])
-            ),
-        )
+        def _partial_fail(**kw):
+            if kw["output"].endswith(f"{first}.wav"):
+                raise RuntimeError("boom")
+            return _make_tts_result(kw["output"])
+
+        monkeypatch.setattr(mcp, "generate", _partial_fail)
         result = mcp.demo(text="hola", output_dir=str(tmp_path / "err_field"))
         failed = [r for r in result["results"] if r["voice"] == first]
         assert failed
