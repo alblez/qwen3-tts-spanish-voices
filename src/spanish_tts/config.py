@@ -1,10 +1,13 @@
 """Configuration management for spanish-tts."""
 
+import logging
 import os
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+logger = logging.getLogger("spanish-tts.config")
 
 VOICES_FILENAME = "voices.yaml"
 DEFAULT_CONFIG_DIR = Path.home() / ".spanish-tts"
@@ -58,11 +61,60 @@ def get_voice(name: str, voices_file: Path | None = None) -> dict[str, Any] | No
     return voices.get(name)
 
 
-def add_voice(name: str, voice_data: dict[str, Any], voices_file: Path | None = None):
-    """Add or update a voice in the registry."""
+def add_voice(
+    name: str,
+    voice_data: dict[str, Any],
+    voices_file: Path | None = None,
+    allow_overwrite: bool = True,
+):
+    """Add or update a voice in the registry.
+
+    When a voice with ``name`` already exists, log a warning before
+    overwriting. If the existing entry has a different ``type`` than the
+    new one (typically ``design`` being shadowed by ``clone``, which is
+    the real collision `scripts/curate.py` produces against bundled
+    presets like ``neutral_female`` and ``warm_female``), log at a
+    louder level so the caller cannot miss the shadowing.
+
+    Args:
+        name: Voice key.
+        voice_data: Voice payload (must include ``type``).
+        voices_file: Registry path; defaults to user config.
+        allow_overwrite: If False, raise ``ValueError`` instead of
+            overwriting an existing entry. Default True to preserve
+            existing callers (`scripts/curate.py` intentionally
+            replaces entries when re-exporting a clone).
+    """
     data = load_voices(voices_file)
     if "voices" not in data:
         data["voices"] = {}
+
+    existing = data["voices"].get(name)
+    if existing is not None:
+        existing_type = existing.get("type", "unknown")
+        new_type = voice_data.get("type", "unknown")
+        if existing_type != new_type:
+            logger.warning(
+                "Voice %r is being OVERWRITTEN and its type CHANGES "
+                "(%s -> %s). This shadows the previous registration. "
+                "If %r is a bundled preset, consider registering your "
+                "custom voice under a distinct name (e.g. "
+                "%r) to avoid colliding with it.",
+                name,
+                existing_type,
+                new_type,
+                name,
+                f"{name}_{new_type}",
+            )
+        else:
+            logger.warning(
+                "Voice %r already exists and is being overwritten (same type: %s).",
+                name,
+                existing_type,
+            )
+        if not allow_overwrite:
+            raise ValueError(f"Voice {name!r} already exists and allow_overwrite=False")
+
     data["voices"][name] = voice_data
     save_voices(data, voices_file)
 
