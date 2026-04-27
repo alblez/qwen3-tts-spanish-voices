@@ -61,6 +61,7 @@ Changelog = "https://github.com/alblez/qwen3-tts-spanish-voices/blob/main/CHANGE
 
 [project.scripts]
 spanish-tts = "spanish_tts.cli:cli"
+spanish-tts-mcp = "spanish_tts.mcp_server:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
