@@ -14,7 +14,6 @@ authors = [{ name = "Alberto González Rouillé" }]
 keywords = ["tts", "spanish", "qwen3", "mlx", "apple-silicon", "voice-cloning", "mcp"]
 classifiers = [
     "Development Status :: 4 - Beta",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: MacOS",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
