@@ -14,6 +14,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `_validate_text` helper in `engine.py` — rejects empty/NUL/too-long text with `ValueError`. Called from `generate_clone` and `generate_design` (U3-17).
 - `TtsResult` dataclass in `engine.py` — frozen, `path: str`, `duration_seconds: float`, `__str__` returns path for backward-compat (U3-19).
 - Logger hygiene: `generate_design` logs instruct body at `DEBUG` (not `INFO`) to avoid voice-persona PII in production logs (U3-18).
+- `_sandbox_path` helper in `mcp_server.py` — factors out MCP-1 path-traversal logic. Applied to `say(output=...)` and `demo(output_dir=...)` (U3-7).
+- `demo` now rejects text > 10 000 chars (`text_too_long` code) and sandboxes `output_dir` to `$HOME` or the system temp directory (U3-7).
 - `TtsResult` exported from `spanish_tts.__init__` (U3-19).
 - `CONTRACT.md` — stable JSON shapes + backward-compat policy for the MCP server (U3-5 part 1).
 - `LICENSE` file with full MIT text; PEP 639 migration in `pyproject.toml` (U3-1).
