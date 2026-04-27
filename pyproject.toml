@@ -24,12 +24,6 @@ classifiers = [
     "Topic :: Multimedia :: Sound/Audio :: Sound Synthesis",
 ]
 
-[project.urls]
-Homepage = "https://github.com/alblez/qwen3-tts-spanish-voices"
-Source = "https://github.com/alblez/qwen3-tts-spanish-voices"
-Issues = "https://github.com/alblez/qwen3-tts-spanish-voices/issues"
-Changelog = "https://github.com/alblez/qwen3-tts-spanish-voices/blob/main/CHANGELOG.md"
-
 dependencies = [
     "click>=8.0",
     "pyyaml>=6.0",
@@ -59,6 +53,12 @@ dev = [
     "ruff==0.15.*",
     "pre-commit>=3",
 ]
+
+[project.urls]
+Homepage = "https://github.com/alblez/qwen3-tts-spanish-voices"
+Source = "https://github.com/alblez/qwen3-tts-spanish-voices"
+Issues = "https://github.com/alblez/qwen3-tts-spanish-voices/issues"
+Changelog = "https://github.com/alblez/qwen3-tts-spanish-voices/blob/main/CHANGELOG.md"
 
 [project.scripts]
 spanish-tts = "spanish_tts.cli:cli"
