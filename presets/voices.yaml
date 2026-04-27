@@ -1,5 +1,11 @@
 # Voice registry for spanish-tts
 # Each voice is either 'clone' (from reference audio) or 'design' (from description)
+#
+# NAME COLLISION WARNING: if you export a curate.py clone under the same name as one
+# of the preset voices below (neutral_female, warm_female, neutral_male,
+# energetic_male), add_voice() will log a WARNING and overwrite the preset in your
+# local registry. To avoid this, suffix your clone names with a regional hint, e.g.
+# warm_female_es or neutral_female_mx.
 
 voices:
   # === Clone voices (from VoxForge Spanish corpus) ===

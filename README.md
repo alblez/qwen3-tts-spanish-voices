@@ -124,6 +124,27 @@ spanish-tts add-design profesor \
   --gender male
 ```
 
+
+### Name collision warning
+
+`scripts/curate.py export` registers the exported voice under whatever name you supply
+with `--voice`. If you pass the same name as a bundled preset (`neutral_female`,
+`warm_female`, `neutral_male`, `energetic_male`), the preset will be overwritten in
+your local registry and `add_voice` will emit a **WARNING** in the logs. If the types
+differ (e.g. preset is `design`, your export is `clone`) the warning is louder and
+suggests a suffix name.
+
+To avoid the collision, suffix your voice names with a regional hint:
+
+```bash
+# Instead of: scripts/curate.py export --voice warm_female ...
+scripts/curate.py export --voice warm_female_es ...
+scripts/curate.py export --voice warm_female_mx ...
+```
+
+The bundled preset remains available under its original name; your clone lives under
+the suffixed name.
+
 ## Architecture
 
 ```text
