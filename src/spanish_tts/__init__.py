@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """spanish-tts: Curated Spanish TTS voices using Qwen3-TTS."""
 
 try:

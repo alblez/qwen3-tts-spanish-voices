@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """TTS engine wrapping Qwen3-TTS MLX for clone and design modes."""
 
 import logging

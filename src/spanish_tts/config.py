@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Configuration management for spanish-tts."""
 
 import logging
@@ -287,6 +288,7 @@ def add_voice(
             )
 
     save_voices(data, voices_file)
+    logger.info("Voice %r registered (type=%s).", name, voice_data.get("type", "unknown"))
 
 
 def list_voices(voices_file: Path | None = None) -> dict[str, dict[str, Any]]:

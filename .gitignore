@@ -34,4 +34,9 @@ HANDOVER_PROMPT.md
 REVIEW_STATE.md
 REVIEW_v*.md
 .audit/
+
+# Coverage artefacts
 .coverage
+htmlcov/
+.mypy_cache/
+coverage.xml
