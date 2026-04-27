@@ -120,11 +120,13 @@ class TestAddVoice:
                 {"type": "clone", "ref_audio": "/tmp/new.wav"},
                 tmp_voices_file,
             )
-        assert len(caplog.records) == 1
-        rec = caplog.records[0]
+        # At least the overwrite warning must be present. A second WARNING may
+        # appear if /tmp/new.wav doesn't exist (L-12 ref_audio check).
+        overwrite_recs = [r for r in caplog.records if "overwritten" in r.message.lower()]
+        assert len(overwrite_recs) == 1
+        rec = overwrite_recs[0]
         assert rec.levelno == logging.WARNING
         assert "test_clone" in rec.message
-        assert "overwritten" in rec.message.lower()
         assert "CHANGES" not in rec.message  # must not route through the type-change branch
         # Verify the overwrite actually persisted
         updated = get_voice("test_clone", tmp_voices_file)
@@ -138,8 +140,9 @@ class TestAddVoice:
                 {"type": "clone", "ref_audio": "/tmp/new.wav"},
                 tmp_voices_file,
             )
-        assert len(caplog.records) == 1
-        rec = caplog.records[0]
+        type_change_recs = [r for r in caplog.records if "CHANGES" in r.message]
+        assert len(type_change_recs) == 1
+        rec = type_change_recs[0]
         assert rec.levelno == logging.WARNING
         assert "test_design" in rec.message
         assert "design" in rec.message

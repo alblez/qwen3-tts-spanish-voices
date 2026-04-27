@@ -272,6 +272,20 @@ def add_voice(
             )
 
     data["voices"][name] = voice_data
+
+    # L-12: warn if ref_audio path doesn't exist at registration time.
+    # Non-fatal — the file may be created later or the path may be relative
+    # to a different CWD.  Synthesis will raise FileNotFoundError at call time.
+    if voice_data.get("type") == "clone":
+        ref = voice_data.get("ref_audio", "")
+        if ref and not Path(ref).expanduser().is_file():
+            logger.warning(
+                "Clone voice %r: ref_audio %r does not exist yet. "
+                "Synthesis will fail until the file is present.",
+                name,
+                ref,
+            )
+
     save_voices(data, voices_file)
 
 
