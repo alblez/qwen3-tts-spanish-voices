@@ -57,6 +57,7 @@ class TestLoggerHygiene:
         fake_mlx = types.ModuleType("mlx_audio")
         fake_tts = types.ModuleType("mlx_audio.tts")
         fake_tts.load_model = lambda model_id: FakeModel()
+        fake_tts.load = lambda model_id, **kw: FakeModel()
         fake_mlx.tts = fake_tts
         monkeypatch.setitem(__import__("sys").modules, "mlx_audio", fake_mlx)
         monkeypatch.setitem(__import__("sys").modules, "mlx_audio.tts", fake_tts)
@@ -255,7 +256,7 @@ class TestGenerateValidation:
 
 
 def _install_fake_load_model(monkeypatch, fake_load_model):
-    """Patch mlx_audio.tts.load_model with *fake_load_model* in sys.modules.
+    """Patch mlx_audio.tts.load and load_model with *fake_load_model* in sys.modules.
 
     Works whether mlx_audio is installed (Apple Silicon) or absent (CI).
     Returns the patched eng module for convenience.
@@ -267,10 +268,16 @@ def _install_fake_load_model(monkeypatch, fake_load_model):
 
     if "mlx_audio.tts" in sys.modules:
         monkeypatch.setattr(sys.modules["mlx_audio.tts"], "load_model", fake_load_model)
+        monkeypatch.setattr(
+            sys.modules["mlx_audio.tts"],
+            "load",
+            lambda model_id, **kw: fake_load_model(model_id),
+        )
     else:
         fake_mlx = types.ModuleType("mlx_audio")
         fake_tts = types.ModuleType("mlx_audio.tts")
         fake_tts.load_model = fake_load_model
+        fake_tts.load = lambda model_id, **kw: fake_load_model(model_id)
         fake_mlx.tts = fake_tts
         monkeypatch.setitem(sys.modules, "mlx_audio", fake_mlx)
         monkeypatch.setitem(sys.modules, "mlx_audio.tts", fake_tts)
