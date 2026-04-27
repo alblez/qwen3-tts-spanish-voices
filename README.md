@@ -21,6 +21,23 @@ cd ~/Code/qwen3-tts-spanish-voices  # or wherever you cloned it
 pip install -e ".[mlx]"
 ```
 
+### Install from source (git)
+
+To install the latest release directly from GitHub without cloning:
+
+```bash
+pip install git+https://github.com/alblez/qwen3-tts-spanish-voices.git@v0.2.0
+```
+
+Or pin to main for the bleeding edge:
+
+```bash
+pip install git+https://github.com/alblez/qwen3-tts-spanish-voices.git@main
+```
+
+> This package is not published on PyPI. The MLX dependency is Apple Silicon-specific
+> and PyPI audience for this scope is negligible; direct git install covers all users.
+
 ### Speed Control (Optional)
 
 For advanced speed control with pitch preservation via librosa, install the `[speed]` extra:
