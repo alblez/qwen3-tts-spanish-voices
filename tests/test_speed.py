@@ -357,3 +357,32 @@ class TestApplySpeedInputGuards:
         audio = np.zeros(2047, dtype=np.float32)
         with pytest.raises(ValueError, match="at least"):
             _apply_speed(audio, 1.5, 24000)
+
+
+# ---------------------------------------------------------------------------
+# U3-6: Speed boundary parametrized tests — NaN, inf, and edge values
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "bad_speed",
+    [
+        pytest.param(float("nan"), id="nan"),
+        pytest.param(float("inf"), id="pos_inf"),
+        pytest.param(float("-inf"), id="neg_inf"),
+        pytest.param(0.4999, id="just_below_min"),
+        pytest.param(2.0001, id="just_above_max"),
+        pytest.param(-1.0, id="negative"),
+        pytest.param(0.0, id="zero"),
+    ],
+)
+def test_apply_speed_rejects_invalid_speeds(bad_speed):
+    """_apply_speed must raise ValueError for all invalid speed values.
+
+    NaN/inf: the range check `not (0.5 <= x <= 2.0)` correctly evaluates
+    to True for NaN (all comparisons return False) and for ±inf (inf > 2.0).
+    All cases therefore raise ValueError before touching librosa.
+    """
+    audio = np.zeros(24000, dtype=np.float32)
+    with pytest.raises(ValueError):
+        _apply_speed(audio, bad_speed, 24000)
