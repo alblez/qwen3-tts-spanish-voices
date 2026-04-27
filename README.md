@@ -71,31 +71,25 @@ spanish-tts say "Guardado aquí" --voice warm_female --output ~/my-audio.wav
 
 ## Available Voices
 
-### Clone Voices (from VoxForge Spanish)
+### Designed voices (ship with install)
 
-| Name           | Gender | Accent        | Source   |
-|----------------|--------|---------------|----------|
-| pedro_es       | Male   | Spain         | VoxForge |
-| lucia_es       | Female | Spain         | VoxForge |
-| carlos_mx      | Male   | Mexico        | VoxForge |
-| elena_mx       | Female | Mexico        | VoxForge |
-| martin_ar      | Male   | Argentina     | VoxForge |
-| sofia_ar       | Female | Argentina     | VoxForge |
-| mateo_cl       | Male   | Chile         | VoxForge |
-| camila_cl      | Female | Chile         | VoxForge |
-| diego_la       | Male   | Ibero-America | VoxForge |
-| valentina_la   | Female | Ibero-America | VoxForge |
-| neutral_female | Female | Ibero-America | VoxForge |
-| warm_female    | Female | Spain         | VoxForge |
+These voices are bundled in `presets/voices.yaml` and ready to use immediately after `pip install`.
 
-### Design Voices (no reference audio needed)
+| Name           | Gender | Style                        |
+|----------------|--------|------------------------------|
+| neutral_male   | Male   | Clear, calm narrator         |
+| neutral_female | Female | Warm, friendly conversational|
+| energetic_male | Male   | Upbeat, dynamic podcast host |
+| warm_female    | Female | Gentle, storytelling tone    |
 
-| Name           | Gender | Description                          |
-|----------------|--------|--------------------------------------|
-| neutral_male   | Male   | Clear, calm narrator                 |
-| energetic_male | Male   | Upbeat, dynamic podcast host         |
+### Clone voices (build locally)
 
-> **Note:** Design voices use English instruct prompts with explicit `lang_code="spanish"` to ensure native prosody. Clone voices produce more natural accents and are recommended when quality matters most.
+Clone voices are **not shipped** — they must be built from the VoxForge Spanish corpus
+using `scripts/curate.py`. The corpus covers Spain, Mexico, Argentina, Chile, and
+Ibero-American accents. See `scripts/curate.py --help` for the full build workflow.
+
+> VoxForge Spanish audio is licensed under **GPL-3.0**. Clone voices built from it
+> inherit that license. See [License inheritance](#license-inheritance) below.
 
 ## CLI Commands
 
@@ -131,6 +125,9 @@ spanish-tts add-ref abuela ~/recordings/abuela.wav \
   --accent colombia --gender female
 ```
 
+> **Voice likeness:** You are responsible for having the right to use any reference audio.
+> Using someone's voice without their consent may violate applicable laws.
+
 ### Design from description
 
 No audio needed — describe the voice you want:
@@ -141,6 +138,21 @@ spanish-tts add-design profesor \
   --gender male
 ```
 
+
+### License inheritance
+
+When building clone voices from external audio, the output WAV files inherit the license
+of the reference audio:
+
+- **VoxForge-derived audio** (built via `scripts/curate.py`) is **GPL-3.0**. The resulting
+  WAV files and the voice entry in your registry carry that license.
+- **Qwen3-TTS** is Apache-2.0. The model weights do not claim ownership of synthesised
+  audio output.
+- **Your own recordings**: WAVs you supply via `add-ref` carry whatever license you hold
+  over those recordings. No additional restrictions are imposed by this package.
+
+If you share or distribute synthesised audio, check the license of the reference material
+you used.
 
 ### Name collision warning
 
@@ -208,11 +220,15 @@ Models are downloaded automatically on first use to `~/.cache/huggingface/hub/`.
 
 ## Data Source
 
-Clone voices sourced from [VoxForge Spanish (CIEMPIESS)](https://huggingface.co/datasets/ciempiess/voxforge_spanish) — a Creative Commons licensed corpus of read Spanish speech covering multiple regional accents.
+Clone voices are sourced from [VoxForge Spanish (CIEMPIESS)](https://huggingface.co/datasets/ciempiess/voxforge_spanish) —
+a **GPL-3.0** licensed corpus of read Spanish speech covering multiple regional accents
+(previously described incorrectly as "Creative Commons").
 
 ## License
 
-MIT
+This package is MIT licensed. See [LICENSE](LICENSE).
+
+Third-party attributions (Qwen3-TTS, mlx-audio, VoxForge corpus) are listed in [NOTICE](NOTICE).
 
 ## Contributing
 
