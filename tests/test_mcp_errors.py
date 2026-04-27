@@ -269,6 +269,7 @@ class TestListAllVoicesErrorBranches:
             result = mcp.list_all_voices()
         assert "error" in result
         assert "Failed to list voices" in result["error"]
+        assert result["code"] == "internal_error"
         assert any("list_voices() failed" in r.message for r in caplog.records)
 
 
@@ -405,6 +406,7 @@ class TestErrorCodeField:
         [
             (float("nan"), "speed_not_finite"),
             (float("inf"), "speed_not_finite"),
+            (float("-inf"), "speed_not_finite"),
             (0.4999, "speed_out_of_range"),
         ],
     )
@@ -412,3 +414,11 @@ class TestErrorCodeField:
         result = bundled_presets.demo(text="hola", speed=speed)
         assert "error" in result
         assert result["code"] == expected_code
+
+    def test_demo_voices_empty_code(self, bundled_presets, monkeypatch):
+        """demo() with no registered voices returns voices_empty code."""
+        mcp = bundled_presets
+        monkeypatch.setattr(mcp, "list_voices", lambda: {})
+        result = mcp.demo(text="hola")
+        assert "error" in result
+        assert result["code"] == "voices_empty"

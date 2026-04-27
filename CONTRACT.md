@@ -56,6 +56,7 @@ The `code` field is **stable** — callers should branch on `code`, not `error`.
 | `path_is_dir` | `output` resolves to `output_dir` itself (a directory) |
 | `generation_failed` | engine raised an unexpected exception |
 | `voices_empty` | `demo` called with zero registered voices |
+| `internal_error` | unexpected exception in a non-generation tool handler (e.g. config read failure in `list_all_voices`) |
 
 ---
 
