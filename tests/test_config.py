@@ -9,7 +9,7 @@ import yaml
 
 from spanish_tts.config import (
     VOICES_FILENAME,
-    _validate_voices_schema,
+    _validate_voices_schema,  # private helper; tested directly to pin the contract
     add_voice,
     get_defaults,
     get_voice,
@@ -114,7 +114,7 @@ class TestAddVoice:
 
     def test_overwrite_same_type_emits_warning(self, tmp_voices_file, caplog):
         """Overwriting a voice with the same type emits a WARNING."""
-        with caplog.at_level(logging.WARNING, logger="spanish-tts.config"):
+        with caplog.at_level(logging.WARNING, logger="spanish_tts.config"):
             add_voice(
                 "test_clone",
                 {"type": "clone", "ref_audio": "/tmp/new.wav"},
@@ -132,7 +132,7 @@ class TestAddVoice:
 
     def test_overwrite_type_change_emits_loud_warning(self, tmp_voices_file, caplog):
         """Overwriting a voice with a different type emits a WARNING flagging the type change."""
-        with caplog.at_level(logging.WARNING, logger="spanish-tts.config"):
+        with caplog.at_level(logging.WARNING, logger="spanish_tts.config"):
             add_voice(
                 "test_design",
                 {"type": "clone", "ref_audio": "/tmp/new.wav"},
@@ -179,7 +179,7 @@ class TestAddVoice:
 
     def test_add_new_voice_emits_no_warning(self, tmp_voices_file, caplog):
         """Adding a brand-new voice emits no warnings."""
-        with caplog.at_level(logging.WARNING, logger="spanish-tts.config"):
+        with caplog.at_level(logging.WARNING, logger="spanish_tts.config"):
             add_voice("brand_new_2", {"type": "design", "instruct": "x"}, tmp_voices_file)
         assert len(caplog.records) == 0
 
@@ -210,9 +210,11 @@ class TestLoadVoicesResilience:
         with caplog.at_level(logging.ERROR, logger="spanish_tts.config"):
             data = load_voices(bad)
         assert "Corrupt" in caplog.text or "corrupt" in caplog.text.lower()
-        # Bundled presets have at least one voice
+        # Bundled presets must include the known neutral_male design voice.
         assert isinstance(data.get("voices"), dict)
-        assert len(data["voices"]) > 0
+        assert "neutral_male" in data["voices"], (
+            "Bundled presets changed — update this test to name a known voice"
+        )
 
     def test_empty_yaml_returns_empty_dict(self, tmp_path):
         """Empty YAML file (safe_load → None) is normalised to {}."""
@@ -265,9 +267,13 @@ class TestSaveVoicesAtomic:
         with pytest.raises(OSError, match="simulated disk-full"):
             save_voices({"voices": {"corrupted": {}}}, vf)
 
-        # Original file unchanged
+        # Original file unchanged; the "corrupted" key must NOT be present.
         reloaded = load_voices(vf)
         assert "original" in reloaded["voices"]
+        assert "corrupted" not in reloaded["voices"]
+        # The tmp file may remain on disk after a failed replace — that is
+        # acceptable (it won't be confused with the real file due to the .tmp
+        # suffix), but the original target must be intact.
 
 
 class TestVoicesSchemaValidation:
@@ -308,25 +314,30 @@ class TestVoicesSchemaValidation:
 
 class TestConfigDirEnvGuard:
     def test_env_var_under_home_accepted(self, tmp_path, monkeypatch):
-        """SPANISH_TTS_CONFIG under $HOME is accepted."""
-        safe = Path.home() / ".spanish-tts-test-tmp"
+        """SPANISH_TTS_CONFIG under $HOME is accepted.
+
+        Uses a subdirectory of $HOME to avoid creating a real directory
+        outside tmp (the dir is created by get_config_dir via mkdir).
+        """
+        # Create a dir under $HOME that we can safely clean up.
+        safe = Path.home() / ".spanish-tts-pytest-tmp"
         monkeypatch.setenv("SPANISH_TTS_CONFIG", str(safe))
         from spanish_tts.config import get_config_dir
 
-        d = get_config_dir()
-        assert d == safe
-        # Cleanup
-        if safe.exists():
-            safe.rmdir()
+        try:
+            d = get_config_dir()
+            assert d == safe
+        finally:
+            # Clean up: the dir was created by get_config_dir's mkdir call.
+            if safe.exists():
+                safe.rmdir()
 
     def test_env_var_outside_home_rejected(self, monkeypatch):
-        """SPANISH_TTS_CONFIG outside $HOME raises ValueError."""
+        """SPANISH_TTS_CONFIG outside $HOME (and outside tmpdir) raises ValueError."""
+        # /etc is never under $HOME or the system tmpdir.
         monkeypatch.setenv("SPANISH_TTS_CONFIG", "/etc/spanish-tts-evil")
-        # Reimport to bypass any cached state
-        import importlib
+        # get_config_dir reads os.environ at call time — no module reload needed.
+        from spanish_tts.config import get_config_dir
 
-        from spanish_tts import config as cfg_mod
-
-        importlib.reload(cfg_mod)
         with pytest.raises(ValueError, match="HOME"):
-            cfg_mod.get_config_dir()
+            get_config_dir()

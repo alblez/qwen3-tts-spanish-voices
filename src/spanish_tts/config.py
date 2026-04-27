@@ -25,6 +25,12 @@ def get_config_dir() -> Path:
     known-safe temporary directory) when the SPANISH_TTS_CONFIG environment
     variable is set, to prevent accidental writes to system directories.
 
+    NOTE: The path is resolved with `.expanduser().resolve()` before the guard
+    check. Relative paths in SPANISH_TTS_CONFIG are therefore resolved against
+    CWD. If CWD is outside $HOME (e.g. `/srv/app`), a relative path that would
+    have worked in prior versions now raises ValueError. This is an intentional
+    behavior change: use an absolute path to avoid ambiguity.
+
     Raises:
         ValueError: If SPANISH_TTS_CONFIG resolves outside $HOME and outside
             the system temp directory.
