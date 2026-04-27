@@ -386,3 +386,57 @@ class TestConfigDirEnvGuard:
 
         with pytest.raises(ValueError, match="HOME"):
             get_config_dir()
+
+
+class TestVoicesSchemaOptionalKeys:
+    """U3-15: source_license and source_url are optional allowed keys."""
+
+    def test_source_license_str_accepted(self):
+        data = {
+            "voices": {
+                "v1": {
+                    "type": "clone",
+                    "ref_audio": "/tmp/a.wav",
+                    "source_license": "GPL-3.0",
+                }
+            }
+        }
+        _validate_voices_schema(data, Path("test.yaml"))  # must not raise
+
+    def test_source_url_str_accepted(self):
+        data = {
+            "voices": {
+                "v1": {
+                    "type": "design",
+                    "instruct": "x",
+                    "source_url": "https://huggingface.co/datasets/ciempiess/voxforge_spanish",
+                }
+            }
+        }
+        _validate_voices_schema(data, Path("test.yaml"))  # must not raise
+
+    def test_source_license_non_string_raises(self):
+        data = {
+            "voices": {
+                "v1": {
+                    "type": "design",
+                    "instruct": "x",
+                    "source_license": 42,  # not a string
+                }
+            }
+        }
+        with pytest.raises(ValueError, match="source_license"):
+            _validate_voices_schema(data, Path("test.yaml"))
+
+    def test_source_url_none_ignored(self):
+        """source_url: null is treated as absent (None)."""
+        data = {
+            "voices": {
+                "v1": {
+                    "type": "design",
+                    "instruct": "x",
+                    "source_url": None,
+                }
+            }
+        }
+        _validate_voices_schema(data, Path("test.yaml"))  # must not raise

@@ -237,6 +237,7 @@ def export(speaker_id, name, clip_index, min_duration, max_duration):
     sf.write(str(ref_path), audio_array, sr)
 
     # Register voice
+    _HF_DATASET_CARD = f"https://huggingface.co/datasets/{DATASET_ID}"
     voice_data = {
         "type": "clone",
         "ref_audio": str(ref_path),
@@ -246,6 +247,8 @@ def export(speaker_id, name, clip_index, min_duration, max_duration):
         "language": "Spanish",
         "source_speaker": speaker_id,
         "source_audio_id": meta["audio_id"],
+        "source_license": "GPL-3.0",
+        "source_url": _HF_DATASET_CARD,
     }
     add_voice(name, voice_data)
 

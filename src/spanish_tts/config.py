@@ -74,6 +74,9 @@ def _validate_voices_schema(data: dict[str, Any], source: Path) -> None:
     - ``data["voices"]`` is a mapping.
     - Each entry has ``type`` in ``{"clone", "design"}``.
     - Clone entries have ``ref_audio`` as a non-empty string.
+
+    Optional keys ``source_license`` (SPDX string) and ``source_url`` (str)
+    are allowed but not validated beyond being strings when present.
     """
     voices = data.get("voices", {})
     if not isinstance(voices, dict):
@@ -96,6 +99,12 @@ def _validate_voices_schema(data: dict[str, Any], source: Path) -> None:
             if not isinstance(ref, str) or not ref:
                 raise ValueError(
                     f"Clone voice {name!r} must have a non-empty string 'ref_audio' in {source}"
+                )
+        for opt_key in ("source_license", "source_url"):
+            val = entry.get(opt_key)
+            if val is not None and not isinstance(val, str):
+                raise ValueError(
+                    f"Voice {name!r} key {opt_key!r} must be a string when present in {source}"
                 )
 
 

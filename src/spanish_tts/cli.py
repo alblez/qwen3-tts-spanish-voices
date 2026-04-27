@@ -88,7 +88,14 @@ def list_cmd():
 @click.argument("transcript")
 @click.option("--accent", default="neutral", help="Accent label (e.g. mexico, spain, argentina).")
 @click.option("--gender", type=click.Choice(["male", "female"]), required=True)
-def add_ref(name, audio_path, transcript, accent, gender):
+@click.option(
+    "--license",
+    "source_license",
+    default="user-supplied-unspecified",
+    help="SPDX license of the reference audio (e.g. 'GPL-3.0', 'CC-BY-4.0').",
+)
+@click.option("--source-url", default=None, help="URL to the original audio source.")
+def add_ref(name, audio_path, transcript, accent, gender, source_license, source_url):
     """Register a clone voice from a reference audio file."""
     import shutil
     from pathlib import Path
@@ -99,14 +106,17 @@ def add_ref(name, audio_path, transcript, accent, gender):
     dest = ref_dir / f"{name}{src.suffix}"
     shutil.copy2(src, dest)
 
-    voice_data = {
+    voice_data: dict = {
         "type": "clone",
         "ref_audio": str(dest),
         "ref_text": transcript,
         "accent": accent,
         "gender": gender,
         "language": "Spanish",
+        "source_license": source_license,
     }
+    if source_url is not None:
+        voice_data["source_url"] = source_url
     add_voice(name, voice_data)
     click.echo(f"Added clone voice '{name}' from {src.name} ({accent}, {gender})")
 

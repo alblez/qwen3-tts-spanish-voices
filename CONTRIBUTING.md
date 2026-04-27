@@ -96,9 +96,15 @@ voices:
     description: <string>          # optional
     ref_audio: <path>              # required for clone voices
     instruct: <string>             # required for design voices
-    source_license: <SPDX string>  # optional (e.g. GPL-3.0)
-    source_url: <url>              # optional
+    source_license: <SPDX string>  # optional (e.g. "GPL-3.0", "CC-BY-4.0")
+    source_url: <url>              # optional (HF dataset card or original source)
 ```
+
+`source_license` and `source_url` are optional but **strongly recommended**
+for any voice built from third-party audio.  `curate.py export` automatically
+sets `source_license: "GPL-3.0"` and `source_url` to the VoxForge HF card.
+The CLI `add-ref --license <SPDX>` flag writes `source_license`; omitting it
+writes `"user-supplied-unspecified"` as a placeholder.
 
 Clone voices built from VoxForge-derived audio must set
 `source_license: GPL-3.0` and `source_url` pointing to the HF dataset card.
