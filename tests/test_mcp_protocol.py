@@ -57,11 +57,13 @@ def _list_tools(mcp_obj):
 
 
 class TestToolInventory:
-    def test_exactly_three_tools(self, mcp_module):
-        """CONTRACT: exactly 3 tools — say, list_all_voices, demo."""
+    def test_exactly_four_tools(self, mcp_module):
+        """CONTRACT: exactly 4 tools — say, list_all_voices, demo, get_version."""
         tools = _list_tools(mcp_module)
         names = {t.name for t in tools}
-        assert names == {"say", "list_all_voices", "demo"}, f"Unexpected tools: {names}"
+        assert names == {"say", "list_all_voices", "demo", "get_version"}, (
+            f"Unexpected tools: {names}"
+        )
 
     def test_say_tool_description_present(self, mcp_module):
         tools = {t.name: t for t in _list_tools(mcp_module)}
@@ -78,6 +80,26 @@ class TestToolInventory:
     def test_demo_description_present(self, mcp_module):
         tools = {t.name: t for t in _list_tools(mcp_module)}
         assert tools["demo"].description
+
+    def test_get_version_description_present(self, mcp_module):
+        tools = {t.name: t for t in _list_tools(mcp_module)}
+        assert tools["get_version"].description
+
+
+class TestGetVersionShape:
+    def test_get_version_returns_version_and_package(self, mcp_module):
+        """CONTRACT: get_version returns version (str) and package (str)."""
+        result = _call(mcp_module, "get_version", {})
+        assert "version" in result, result
+        assert "package" in result, result
+        assert isinstance(result["version"], str)
+        assert result["package"] == "qwen3-tts-spanish-voices"
+
+    def test_get_version_no_required_params(self, mcp_module):
+        """CONTRACT: get_version takes no required parameters."""
+        tools = {t.name: t for t in _list_tools(mcp_module)}
+        schema = tools["get_version"].inputSchema
+        assert schema.get("required", []) == []
 
 
 # ---------------------------------------------------------------------------

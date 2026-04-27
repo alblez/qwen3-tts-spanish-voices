@@ -21,6 +21,7 @@ from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
+from spanish_tts import __version__
 from spanish_tts.config import get_defaults, get_voice, list_voices
 from spanish_tts.engine import generate
 
@@ -200,6 +201,19 @@ def list_all_voices() -> dict:
     except Exception as e:
         logger.error("list_voices() failed: %s", e, exc_info=True)
         return {"error": f"Failed to list voices: {e}", "code": "internal_error"}
+
+
+@mcp.tool()
+def get_version() -> dict:
+    """Return the installed package version.
+
+    Callers can use this to verify skill/server compatibility before invoking
+    other tools.  The ``version`` field follows Semantic Versioning.
+
+    Returns:
+        Dict with ``version`` (str) and ``package`` (str).
+    """
+    return {"version": __version__, "package": "qwen3-tts-spanish-voices"}
 
 
 @mcp.tool()

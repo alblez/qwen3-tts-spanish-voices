@@ -18,6 +18,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `demo` now rejects text > 10 000 chars (`text_too_long` code) and sandboxes `output_dir` to `$HOME` or the system temp directory (U3-7).
 - `MODEL_REVISIONS` dict in `engine.py` with pinned HF commit SHAs for both models. `_get_model` passes `revision=` to `mlx_audio.tts.load` (U3-9).
 - `CONTRIBUTING.md` documents the model-revision bump process (U3-9).
+- `__version__` in `__init__.py` now read from `importlib.metadata` — single source of truth from `pyproject.toml` (U3-8).
+- `get_version()` MCP tool returns `{"version": ..., "package": ...}` for skill compatibility probing (U3-8).
 - `TtsResult` exported from `spanish_tts.__init__` (U3-19).
 - `CONTRACT.md` — stable JSON shapes + backward-compat policy for the MCP server (U3-5 part 1).
 - `LICENSE` file with full MIT text; PEP 639 migration in `pyproject.toml` (U3-1).
