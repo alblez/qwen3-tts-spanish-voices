@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 #!/usr/bin/env python3
 """Curate Spanish voice references from VoxForge Spanish corpus.
 

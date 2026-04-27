@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """MCP server for spanish-tts.
 
 Exposes Qwen3-TTS Spanish voice generation as MCP tools so Hermes Agent
