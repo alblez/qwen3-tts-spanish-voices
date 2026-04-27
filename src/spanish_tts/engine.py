@@ -25,8 +25,11 @@ class TtsResult:
             re-read from the file via ``sf.info``.
 
     The ``__str__`` shim returns ``self.path`` so existing callers that
-    treat the result as a string (``click.echo(result)``, f-strings, etc.)
-    continue working without modification.
+    treat the result as a string via coercion (``click.echo(result)``,
+    f-strings, ``str(result)``, ``print(result)``) continue working
+    without modification.  Equality comparisons against plain path strings
+    (``result == "/path/foo.wav"``) will **not** match — use
+    ``result.path == "/path/foo.wav"`` or ``str(result) == "/path/foo.wav"``.
     """
 
     path: str

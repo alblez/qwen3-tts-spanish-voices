@@ -25,8 +25,9 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `[project.urls]`, `classifiers`, `keywords` added to `pyproject.toml`; `requires_mlx` marker registered (U3-20).
 
 ### Changed
-- `generate_clone`, `generate_design`, `generate` now return `TtsResult` instead of `str`. `str(result)` still returns the path — backward-compat callers unaffected (U3-19).
+- `generate_clone`, `generate_design`, `generate` now return `TtsResult` instead of `str`. `str(result)` still returns the path — string-coercion callers unaffected; equality comparisons against plain path strings break (use `result.path`) (U3-19).
 - MCP `say` `duration_seconds` field now always a float (engine-computed). The `sf.info` re-read and its bare-except dead branch are removed (U3-19).
+- `pyproject.toml` version bumped to `0.3.0` (breaking engine public API).
 - `CONTRACT.md` updated: `duration_seconds` documented as always-present finite float.
 - `load_voices` now falls back to bundled presets (with a logged error) when the user's `voices.yaml` contains schema-invalid entries, in addition to the existing `YAMLError` fallback. The user's corrupt file is NOT overwritten.
 - `config.py` `save_voices()` now writes atomically via `.yaml.tmp` + `os.replace` (U3-3).
