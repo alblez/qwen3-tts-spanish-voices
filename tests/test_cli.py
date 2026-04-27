@@ -55,6 +55,7 @@ class TestAddRefCommand:
         assert result.exit_code == 0
         assert "--accent" in result.output
         assert "--gender" in result.output
+        assert "--license" in result.output
 
 
 class TestAddDesignCommand:
