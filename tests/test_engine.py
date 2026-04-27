@@ -13,6 +13,7 @@ from spanish_tts.engine import (
     _clear_cache,
     _generate_lock,
     _resolve_output,
+    _validate_text,
     generate,
     generate_clone,
     generate_design,
@@ -52,6 +53,58 @@ class TestTtsResult:
         r = TtsResult(path="/tmp/foo.wav", duration_seconds=1.0)
         with pytest.raises(AttributeError):  # frozen dataclass raises FrozenInstanceError
             r.path = "/other"  # type: ignore[misc]
+
+
+class TestValidateText:
+    """Unit tests for _validate_text helper (U3-17)."""
+
+    def test_valid_ascii(self):
+        assert _validate_text("hello world") == "hello world"
+
+    def test_valid_spanish_unicode(self):
+        assert _validate_text("¡Hola, cómo estás!") == "¡Hola, cómo estás!"
+
+    def test_valid_nfc_accent(self):
+        # NFC: é (U+00E9)
+        assert _validate_text("caf\u00e9") == "caf\u00e9"
+
+    def test_valid_nfd_accent(self):
+        # NFD: e + combining accent (U+0301)
+        assert _validate_text("cafe\u0301") == "cafe\u0301"
+
+    def test_valid_mixed_scripts(self):
+        assert _validate_text("Spanish: ñ, Arabic: نعم, CJK: 你好") is not None
+
+    def test_valid_long_accent(self):
+        long_text = "a" * 9999 + "ñ"
+        assert _validate_text(long_text) == long_text
+
+    def test_empty_string_raises(self):
+        with pytest.raises(ValueError, match="text is empty"):
+            _validate_text("")
+
+    def test_whitespace_only_raises(self):
+        with pytest.raises(ValueError, match="text is empty"):
+            _validate_text("   \t\n")
+
+    def test_none_raises(self):
+        with pytest.raises((ValueError, AttributeError)):
+            _validate_text(None)  # type: ignore[arg-type]
+
+    def test_nul_byte_raises(self):
+        with pytest.raises(ValueError, match="NUL"):
+            _validate_text("hola\x00mundo")
+
+    def test_too_long_raises(self):
+        with pytest.raises(ValueError, match="too long"):
+            _validate_text("a" * 10001)
+
+    def test_exactly_max_len_accepted(self):
+        assert len(_validate_text("a" * 10000)) == 10000
+
+    def test_no_max_len(self):
+        very_long = "a" * 50000
+        assert _validate_text(very_long, max_len=None) == very_long
 
 
 class TestGenerateCloneSignature:

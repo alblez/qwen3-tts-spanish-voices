@@ -50,17 +50,22 @@ def _make_tts_result(path: str, duration: float = 1.23) -> TtsResult:
 class TestSayTextValidation:
     def test_empty_string_rejected(self, bundled_presets):
         result = bundled_presets.say(text="")
-        assert result == {"error": "text is empty"}
+        assert result == {"error": "text is empty", "code": "text_empty"}
 
     def test_whitespace_only_rejected(self, bundled_presets):
         result = bundled_presets.say(text="   \t\n")
-        assert result == {"error": "text is empty"}
+        assert result == {"error": "text is empty", "code": "text_empty"}
+
+    def test_nul_byte_rejected(self, bundled_presets):
+        result = bundled_presets.say(text="hola\x00mundo")
+        assert result == {"error": "text contains NUL byte", "code": "text_nul"}
 
     def test_text_too_long_rejected(self, bundled_presets):
         result = bundled_presets.say(text="a" * 10001)
         assert "error" in result
         assert "too long" in result["error"]
         assert "10001" in result["error"]
+        assert result["code"] == "text_too_long"
 
     def test_text_exactly_10000_accepted(self, bundled_presets, monkeypatch, tmp_path):
         mcp = bundled_presets
@@ -84,6 +89,7 @@ class TestSayVoiceNotFound:
         result = bundled_presets.say(text="hola", voice="__no_such_voice__")
         assert "error" in result
         assert "__no_such_voice__" in result["error"]
+        assert result["code"] == "voice_not_found"
 
     def test_error_lists_available_voices(self, bundled_presets):
         result = bundled_presets.say(text="hola", voice="__no_such_voice__")
@@ -140,6 +146,7 @@ class TestSayGenerateException:
         assert "error" in result
         assert "Generation failed" in result["error"]
         assert "boom" in result["error"]
+        assert result["code"] == "generation_failed"
 
     def test_generate_exception_is_logged(self, bundled_presets, tmp_path, monkeypatch, caplog):
         mcp = bundled_presets
@@ -273,11 +280,11 @@ class TestListAllVoicesErrorBranches:
 class TestDemoErrorBranches:
     def test_empty_text_returns_error(self, bundled_presets):
         result = bundled_presets.demo(text="")
-        assert result == {"error": "text is empty"}
+        assert result == {"error": "text is empty", "code": "text_empty"}
 
     def test_whitespace_text_returns_error(self, bundled_presets):
         result = bundled_presets.demo(text="  ")
-        assert result == {"error": "text is empty"}
+        assert result == {"error": "text is empty", "code": "text_empty"}
 
     def test_generates_result_per_voice(self, bundled_presets, tmp_path, monkeypatch):
         mcp = bundled_presets
@@ -344,3 +351,64 @@ class TestDemoErrorBranches:
         with caplog.at_level(logging.ERROR, logger="spanish_tts.mcp_server"):
             mcp.demo(text="hola", output_dir=str(tmp_path / "log_demo"))
         assert any("demo generate for" in r.message for r in caplog.records)
+
+
+# ---------------------------------------------------------------------------
+# ECO-016: stable 'code' field on all error-return branches (U3-17)
+# ---------------------------------------------------------------------------
+
+
+class TestErrorCodeField:
+    """Every MCP error return must include a stable 'code' enum value."""
+
+    @pytest.mark.parametrize(
+        "speed,expected_code",
+        [
+            (float("nan"), "speed_not_finite"),
+            (float("inf"), "speed_not_finite"),
+            (float("-inf"), "speed_not_finite"),
+            (0.4999, "speed_out_of_range"),
+            (2.0001, "speed_out_of_range"),
+        ],
+    )
+    def test_say_speed_codes(self, bundled_presets, speed, expected_code):
+        result = bundled_presets.say(text="hola", voice="neutral_male", speed=speed)
+        assert "error" in result
+        assert result["code"] == expected_code
+
+    def test_say_path_escape_has_code(self, bundled_presets, tmp_path, monkeypatch):
+        mcp = bundled_presets
+        monkeypatch.setattr(
+            mcp, "get_defaults", lambda: {"speed": 1.0, "output_dir": str(tmp_path)}
+        )
+        result = mcp.say(text="hola", voice="neutral_male", output="../escape.wav")
+        assert result["code"] == "path_escape"
+
+    def test_say_path_is_dir_has_code(self, bundled_presets, tmp_path, monkeypatch):
+        mcp = bundled_presets
+        monkeypatch.setattr(
+            mcp, "get_defaults", lambda: {"speed": 1.0, "output_dir": str(tmp_path)}
+        )
+        result = mcp.say(text="hola", voice="neutral_male", output=".")
+        assert result["code"] == "path_is_dir"
+
+    def test_say_path_invalid_has_code(self, bundled_presets, tmp_path, monkeypatch):
+        mcp = bundled_presets
+        monkeypatch.setattr(
+            mcp, "get_defaults", lambda: {"speed": 1.0, "output_dir": str(tmp_path)}
+        )
+        result = mcp.say(text="hola", voice="neutral_male", output="foo\x00.wav")
+        assert result["code"] == "path_invalid"
+
+    @pytest.mark.parametrize(
+        "speed,expected_code",
+        [
+            (float("nan"), "speed_not_finite"),
+            (float("inf"), "speed_not_finite"),
+            (0.4999, "speed_out_of_range"),
+        ],
+    )
+    def test_demo_speed_codes(self, bundled_presets, speed, expected_code):
+        result = bundled_presets.demo(text="hola", speed=speed)
+        assert "error" in result
+        assert result["code"] == expected_code
