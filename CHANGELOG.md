@@ -23,6 +23,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `spanish-tts-mcp` console script added to `pyproject.toml` `[project.scripts]` (U3-14).
 - `_preload_models` moved to background daemon thread so MCP stdio handshake (`list_tools`, `initialize`) responds immediately without blocking on model downloads (U3-14).
 - `source_license` and `source_url` optional keys added to voice schema (U3-15). `curate.py export` writes `GPL-3.0` + HF dataset card URL. CLI `add-ref --license` flag defaults to `user-supplied-unspecified`.
+- CI matrix extended to Python 3.13 (Ubuntu). `pre-commit` job added. `concurrency: cancel-in-progress` added. `test-macos` job added (workflow_dispatch only; caches `~/.cache/huggingface`) (U3-13).
 - `TtsResult` exported from `spanish_tts.__init__` (U3-19).
 - `CONTRACT.md` — stable JSON shapes + backward-compat policy for the MCP server (U3-5 part 1).
 - `LICENSE` file with full MIT text; PEP 639 migration in `pyproject.toml` (U3-1).
