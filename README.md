@@ -170,15 +170,19 @@ If you want an error instead of a warning when a collision occurs, pass
 ```text
 qwen3-tts-spanish-voices/
 ├── src/spanish_tts/
-│   ├── cli.py       # Click CLI (say, list, demo, add-ref, add-design, remove)
-│   ├── config.py    # YAML voice registry management
-│   └── engine.py    # MLX Qwen3-TTS wrapper (clone + design generation)
+│   ├── cli.py          # Click CLI (say, list, demo, add-ref, add-design, remove)
+│   ├── config.py       # YAML voice registry management
+│   ├── engine.py       # MLX Qwen3-TTS wrapper (clone + design generation)
+│   └── mcp_server.py   # FastMCP server (say, list_all_voices, demo tools)
 ├── presets/
-│   └── voices.yaml  # Default voice definitions (shipped with package)
+│   └── voices.yaml     # Default voice definitions (shipped with package)
 ├── scripts/
-│   └── curate.py    # VoxForge corpus browser for finding reference audio
+│   └── curate.py       # VoxForge corpus browser for finding reference audio
+├── CONTRACT.md         # Stable MCP JSON shapes + backward-compat policy
 └── pyproject.toml
 ```
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for module details, synthesis pipeline, and extension points.
 
 ## Configuration
 
