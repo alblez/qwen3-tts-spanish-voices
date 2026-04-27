@@ -15,6 +15,7 @@ import pytest
 
 import spanish_tts.engine as eng
 from spanish_tts.engine import (
+    LANG_MAP,
     MODELS,
     _cache_lock,
     _clear_cache,
@@ -138,23 +139,10 @@ class TestGetModelCacheHit:
 # D. generate_design language mapping — all 10 lang_map entries
 # ---------------------------------------------------------------------------
 
-_LANG_MAP = {
-    "Spanish": "spanish",
-    "English": "english",
-    "Chinese": "chinese",
-    "French": "french",
-    "German": "german",
-    "Italian": "italian",
-    "Portuguese": "portuguese",
-    "Japanese": "japanese",
-    "Korean": "korean",
-    "Russian": "russian",
-}
-
 
 @pytest.mark.slow
 @pytest.mark.requires_mlx
-@pytest.mark.parametrize("language,expected_code", list(_LANG_MAP.items()))
+@pytest.mark.parametrize("language,expected_code", list(LANG_MAP.items()))
 def test_generate_design_language_mapping(monkeypatch, tmp_path, language, expected_code):
     """generate_design passes the correct lang_code to model.generate() for each language."""
     captured = {}

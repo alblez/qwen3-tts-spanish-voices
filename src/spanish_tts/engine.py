@@ -41,6 +41,20 @@ class TtsResult:
 # Speed range constants
 SPEED_MIN, SPEED_MAX = 0.5, 2.0
 
+# Language name → Qwen3-TTS lang_code mapping (used by generate_design).
+LANG_MAP: dict[str, str] = {
+    "Spanish": "spanish",
+    "English": "english",
+    "Chinese": "chinese",
+    "French": "french",
+    "German": "german",
+    "Italian": "italian",
+    "Portuguese": "portuguese",
+    "Japanese": "japanese",
+    "Korean": "korean",
+    "Russian": "russian",
+}
+
 _MAX_TEXT_LEN = 10_000
 
 
@@ -352,19 +366,7 @@ def generate_design(
         backward-compatible callers.
     """
     _validate_text(text)
-    lang_map = {
-        "Spanish": "spanish",
-        "English": "english",
-        "Chinese": "chinese",
-        "French": "french",
-        "German": "german",
-        "Italian": "italian",
-        "Portuguese": "portuguese",
-        "Japanese": "japanese",
-        "Korean": "korean",
-        "Russian": "russian",
-    }
-    lang_code = lang_map.get(language, "spanish")
+    lang_code = LANG_MAP.get(language, "spanish")
 
     with _generate_lock:
         model = _get_model(model_id or MODELS["design"])
