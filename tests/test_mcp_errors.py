@@ -15,7 +15,6 @@ import types
 import pytest
 import yaml
 
-
 # ---------------------------------------------------------------------------
 # Fixture
 # ---------------------------------------------------------------------------
@@ -73,7 +72,9 @@ class TestSayTextValidation:
 
     def test_text_exactly_10000_accepted(self, bundled_presets, monkeypatch, tmp_path):
         mcp = bundled_presets
-        monkeypatch.setattr(mcp, "get_defaults", lambda: {"speed": 1.0, "output_dir": str(tmp_path)})
+        monkeypatch.setattr(
+            mcp, "get_defaults", lambda: {"speed": 1.0, "output_dir": str(tmp_path)}
+        )
         monkeypatch.setattr(mcp, "generate", lambda **kw: str(tmp_path / "out.wav"))
         monkeypatch.setitem(sys.modules, "soundfile", _fake_sf_module())
         result = mcp.say(text="a" * 10000, voice="neutral_male")
@@ -107,10 +108,13 @@ class TestSayPathOsError:
 
         mcp = bundled_presets
         monkeypatch.setattr(
-            mcp, "generate",
+            mcp,
+            "generate",
             lambda *a, **kw: pytest.fail("generate() must not be called"),
         )
-        monkeypatch.setattr(mcp, "get_defaults", lambda: {"speed": 1.0, "output_dir": str(tmp_path)})
+        monkeypatch.setattr(
+            mcp, "get_defaults", lambda: {"speed": 1.0, "output_dir": str(tmp_path)}
+        )
 
         real_resolve = Path.resolve
 
@@ -133,8 +137,12 @@ class TestSayPathOsError:
 class TestSayGenerateException:
     def test_generate_exception_returns_error_dict(self, bundled_presets, tmp_path, monkeypatch):
         mcp = bundled_presets
-        monkeypatch.setattr(mcp, "get_defaults", lambda: {"speed": 1.0, "output_dir": str(tmp_path)})
-        monkeypatch.setattr(mcp, "generate", lambda **kw: (_ for _ in ()).throw(RuntimeError("boom")))
+        monkeypatch.setattr(
+            mcp, "get_defaults", lambda: {"speed": 1.0, "output_dir": str(tmp_path)}
+        )
+        monkeypatch.setattr(
+            mcp, "generate", lambda **kw: (_ for _ in ()).throw(RuntimeError("boom"))
+        )
         result = mcp.say(text="hola", voice="neutral_male")
         assert "error" in result
         assert "Generation failed" in result["error"]
@@ -142,8 +150,12 @@ class TestSayGenerateException:
 
     def test_generate_exception_is_logged(self, bundled_presets, tmp_path, monkeypatch, caplog):
         mcp = bundled_presets
-        monkeypatch.setattr(mcp, "get_defaults", lambda: {"speed": 1.0, "output_dir": str(tmp_path)})
-        monkeypatch.setattr(mcp, "generate", lambda **kw: (_ for _ in ()).throw(RuntimeError("kaboom")))
+        monkeypatch.setattr(
+            mcp, "get_defaults", lambda: {"speed": 1.0, "output_dir": str(tmp_path)}
+        )
+        monkeypatch.setattr(
+            mcp, "generate", lambda **kw: (_ for _ in ()).throw(RuntimeError("kaboom"))
+        )
         with caplog.at_level(logging.ERROR, logger="spanish_tts.mcp_server"):
             mcp.say(text="hola", voice="neutral_male")
         assert any("generate() failed" in r.message for r in caplog.records)
@@ -157,7 +169,9 @@ class TestSayGenerateException:
 class TestSaySfInfoFailure:
     def test_broken_wav_returns_duration_none(self, bundled_presets, tmp_path, monkeypatch):
         mcp = bundled_presets
-        monkeypatch.setattr(mcp, "get_defaults", lambda: {"speed": 1.0, "output_dir": str(tmp_path)})
+        monkeypatch.setattr(
+            mcp, "get_defaults", lambda: {"speed": 1.0, "output_dir": str(tmp_path)}
+        )
         monkeypatch.setattr(mcp, "generate", lambda **kw: str(tmp_path / "out.wav"))
 
         bad_sf = types.ModuleType("soundfile")
@@ -177,7 +191,9 @@ class TestSaySfInfoFailure:
 class TestSayStreamWiring:
     def test_stream_true_passes_on_chunk_to_generate(self, bundled_presets, tmp_path, monkeypatch):
         mcp = bundled_presets
-        monkeypatch.setattr(mcp, "get_defaults", lambda: {"speed": 1.0, "output_dir": str(tmp_path)})
+        monkeypatch.setattr(
+            mcp, "get_defaults", lambda: {"speed": 1.0, "output_dir": str(tmp_path)}
+        )
 
         captured = {}
 
@@ -196,9 +212,13 @@ class TestSayStreamWiring:
 
     def test_stream_false_passes_none_on_chunk(self, bundled_presets, tmp_path, monkeypatch):
         mcp = bundled_presets
-        monkeypatch.setattr(mcp, "get_defaults", lambda: {"speed": 1.0, "output_dir": str(tmp_path)})
+        monkeypatch.setattr(
+            mcp, "get_defaults", lambda: {"speed": 1.0, "output_dir": str(tmp_path)}
+        )
         captured = {}
-        monkeypatch.setattr(mcp, "generate", lambda **kw: (captured.update(kw), str(tmp_path / "x.wav"))[1])
+        monkeypatch.setattr(
+            mcp, "generate", lambda **kw: (captured.update(kw), str(tmp_path / "x.wav"))[1]
+        )
         monkeypatch.setitem(sys.modules, "soundfile", _fake_sf_module())
         mcp.say(text="hola", voice="neutral_male", stream=False)
         assert captured["on_chunk"] is None
@@ -230,6 +250,7 @@ class TestListAllVoicesErrorBranches:
         (tmp_path / "voices.yaml").write_text(yaml.dump(voices_data), encoding="utf-8")
 
         import spanish_tts.mcp_server as mcp_server
+
         importlib.reload(mcp_server)
 
         result = mcp_server.list_all_voices()
@@ -242,7 +263,9 @@ class TestListAllVoicesErrorBranches:
 
     def test_list_voices_exception_returns_error_dict(self, bundled_presets, monkeypatch, caplog):
         mcp = bundled_presets
-        monkeypatch.setattr(mcp, "list_voices", lambda **kw: (_ for _ in ()).throw(RuntimeError("broken")))
+        monkeypatch.setattr(
+            mcp, "list_voices", lambda **kw: (_ for _ in ()).throw(RuntimeError("broken"))
+        )
         with caplog.at_level(logging.ERROR, logger="spanish_tts.mcp_server"):
             result = mcp.list_all_voices()
         assert "error" in result
@@ -302,10 +325,13 @@ class TestDemoErrorBranches:
         first = list(mcp.list_voices().keys())[0]
 
         monkeypatch.setattr(
-            mcp, "generate",
-            lambda **kw: (_ for _ in ()).throw(RuntimeError("boom"))
-            if kw["output"].endswith(f"{first}.wav")
-            else kw["output"],
+            mcp,
+            "generate",
+            lambda **kw: (
+                (_ for _ in ()).throw(RuntimeError("boom"))
+                if kw["output"].endswith(f"{first}.wav")
+                else kw["output"]
+            ),
         )
         result = mcp.demo(text="hola", output_dir=str(tmp_path / "err_field"))
         failed = [r for r in result["results"] if r["voice"] == first]
