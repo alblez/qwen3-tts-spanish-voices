@@ -13,6 +13,27 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 - `CONTRACT.md` — stable JSON shapes + backward-compat policy for the MCP server (U3-5 part 1).
 - `LICENSE` file with full MIT text; PEP 639 migration in `pyproject.toml` (U3-1).
+- `SECURITY.md` with supported versions, private advisory link, and 72h ack SLA (U3-11).
+- `NOTICE` file attributing Qwen3-TTS (Apache-2.0), mlx-audio (MIT), VoxForge (GPL-3.0) (U3-16).
+- `ARCHITECTURE.md`, `CONTRIBUTING.md`, `.github/CODEOWNERS` — module overview, contributor guide, code ownership (U3-12).
+- `CHANGELOG.md` Keep-a-Changelog format with umbrella-2 backfill (U3-10).
+- `tests/test_mcp_protocol.py` — 25 in-process FastMCP contract shape tests (U3-5 part 2).
+- `tests/test_mcp_errors.py` — 20 unit tests covering all mcp_server.py error branches (U3-6).
+- `tests/test_engine_integration.py` — 17 slow/mlx-marked integration tests: streaming, language mapping, cache hit, missing ref_audio (U3-6).
+- `[project.urls]`, `classifiers`, `keywords` added to `pyproject.toml`; `requires_mlx` marker registered (U3-20).
+
+### Changed
+- `config.py` `save_voices()` now writes atomically via `.yaml.tmp` + `os.replace` (U3-3).
+- `config.py` `load_voices()` catches `yaml.YAMLError`, falls back to bundled presets, never overwrites corrupt user file (U3-3).
+- `config.py` validates `SPANISH_TTS_CONFIG` env var resolves under `$HOME` before `mkdir` (U3-3).
+- `engine.py` adds `_cache_lock` (thread-safe `_model_cache`) and `_generate_lock` (serialized synthesis pipeline) (U3-4).
+- README voice tables rewritten: 4 bundled design voices listed; clone voices marked as build-locally-only (U3-2).
+- README `Data Source` section corrects VoxForge license from "Creative Commons" to GPL-3.0 (U3-2).
+- README adds "License inheritance" subsection and voice-likeness warning (U3-2).
+- Logger names unified under `spanish_tts.*` namespace (U3-3).
+
+### Fixed
+- Speed boundary tests: parametrized NaN/±inf/edge-value rejection by `_apply_speed` (U3-6).
 
 ---
 
