@@ -33,3 +33,5 @@ references/
 HANDOVER_PROMPT.md
 REVIEW_STATE.md
 REVIEW_v*.md
+.audit/
+.coverage
