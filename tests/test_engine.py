@@ -1,6 +1,7 @@
 """Tests for spanish_tts.engine module (no model loading)."""
 
 import inspect
+import logging
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
@@ -19,6 +20,10 @@ from spanish_tts.engine import (
     generate_design,
 )
 
+# ---------------------------------------------------------------------------
+# U3-18: Logger hygiene — caplog tests for instruct body visibility
+# ---------------------------------------------------------------------------
+
 
 class TestModels:
     def test_model_keys(self):
@@ -29,6 +34,62 @@ class TestModels:
     def test_model_ids_are_mlx(self):
         for key, model_id in MODELS.items():
             assert "mlx-community" in model_id, f"{key} model should be mlx-community"
+
+
+class TestLoggerHygiene:
+    """U3-18: instruct body (voice-persona PII) demoted to DEBUG."""
+
+    def _setup_fake_design(self, monkeypatch, tmp_path):
+        """Patch mlx_audio so generate_design runs without a real model."""
+        import types
+
+        import spanish_tts.engine as eng
+
+        class FakeModel:
+            sample_rate = 24000
+
+            def generate(self, **kwargs):
+                class R:
+                    audio = [0.0] * 4096
+
+                yield R()
+
+        fake_mlx = types.ModuleType("mlx_audio")
+        fake_tts = types.ModuleType("mlx_audio.tts")
+        fake_tts.load_model = lambda model_id: FakeModel()
+        fake_mlx.tts = fake_tts
+        monkeypatch.setitem(__import__("sys").modules, "mlx_audio", fake_mlx)
+        monkeypatch.setitem(__import__("sys").modules, "mlx_audio.tts", fake_tts)
+        eng._model_cache.clear()
+        return tmp_path
+
+    def test_instruct_not_logged_at_info(self, monkeypatch, tmp_path, caplog):
+        """At INFO level, instruct body must NOT appear in logs (voice-persona PII)."""
+        self._setup_fake_design(monkeypatch, tmp_path)
+        secret_instruct = "SECRET_VOICE_PERSONA_DO_NOT_LOG"
+        with caplog.at_level(logging.INFO, logger="spanish_tts.engine"):
+            generate_design(
+                text="hola",
+                instruct=secret_instruct,
+                output=str(tmp_path / "out.wav"),
+            )
+        log_text = " ".join(r.message for r in caplog.records)
+        assert secret_instruct not in log_text, (
+            "Instruct body leaked at INFO level — must be demoted to DEBUG"
+        )
+
+    def test_instruct_logged_at_debug(self, monkeypatch, tmp_path, caplog):
+        """At DEBUG level, instruct body IS captured (developers need it for diagnostics)."""
+        self._setup_fake_design(monkeypatch, tmp_path)
+        secret_instruct = "SECRET_VOICE_PERSONA_FOR_DEBUG"
+        with caplog.at_level(logging.DEBUG, logger="spanish_tts.engine"):
+            generate_design(
+                text="hola",
+                instruct=secret_instruct,
+                output=str(tmp_path / "out.wav"),
+            )
+        log_text = " ".join(r.message for r in caplog.records)
+        assert secret_instruct in log_text, "Instruct body should be visible at DEBUG level"
 
 
 class TestTtsResult:

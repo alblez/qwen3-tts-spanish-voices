@@ -13,6 +13,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 - `_validate_text` helper in `engine.py` — rejects empty/NUL/too-long text with `ValueError`. Called from `generate_clone` and `generate_design` (U3-17).
 - `TtsResult` dataclass in `engine.py` — frozen, `path: str`, `duration_seconds: float`, `__str__` returns path for backward-compat (U3-19).
+- Logger hygiene: `generate_design` logs instruct body at `DEBUG` (not `INFO`) to avoid voice-persona PII in production logs (U3-18).
 - `TtsResult` exported from `spanish_tts.__init__` (U3-19).
 - `CONTRACT.md` — stable JSON shapes + backward-compat policy for the MCP server (U3-5 part 1).
 - `LICENSE` file with full MIT text; PEP 639 migration in `pyproject.toml` (U3-1).
@@ -31,6 +32,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - MCP `say`/`demo` error responses now include a stable `code` field alongside `error`. Stable enum documented in `CONTRACT.md` (U3-17, ECO-016).
 - MCP `say` rejects NUL bytes in `text` (`text_nul` code) and adds `math.isfinite` guard on speed before the range check (`speed_not_finite` code) (U3-17).
 - CLI `say` speed fallback: `speed or defaults.get(...)` replaced by `speed if speed is not None else ...` — prevents `speed=0.0` falling through (U3-17).
+- Logger hygiene: `engine.py` 5 `print(..., file=sys.stderr)` replaced by `logger.info/debug`. Logger pinned to `"spanish_tts.engine"` (was `__name__`). `sys` import removed (U3-18).
+- MCP `logger.error` calls now pass `exc_info` only at `DEBUG` level — avoids stack trace noise in production logs (U3-18).
 - `pyproject.toml` version bumped to `0.3.0` (breaking engine public API).
 - `CONTRACT.md` updated: `duration_seconds` documented as always-present finite float.
 - `load_voices` now falls back to bundled presets (with a logged error) when the user's `voices.yaml` contains schema-invalid entries, in addition to the existing `YAMLError` fallback. The user's corrupt file is NOT overwritten.

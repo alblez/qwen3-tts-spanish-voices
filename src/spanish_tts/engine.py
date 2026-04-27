@@ -1,7 +1,6 @@
 """TTS engine wrapping Qwen3-TTS MLX for clone and design modes."""
 
 import logging
-import sys
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -11,7 +10,7 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("spanish_tts.engine")
 
 
 @dataclass(frozen=True)
@@ -172,7 +171,7 @@ def _get_model(model_id: str):
         if model_id not in _model_cache:
             from mlx_audio.tts import load_model
 
-            print(f"Loading model: {model_id}", file=sys.stderr)
+            logger.info("Loading model: %s", model_id)
             _model_cache[model_id] = load_model(model_id)
         return _model_cache[model_id]
 
@@ -259,10 +258,7 @@ def generate_clone(
 
     with _generate_lock:
         model = _get_model(model_id or MODELS["clone"])
-        print(
-            f"Cloning voice from: {ref_path}" + (" [streaming]" if stream else ""),
-            file=sys.stderr,
-        )
+        logger.info("Cloning voice from: %s%s", ref_path, " [streaming]" if stream else "")
         results = model.generate(
             text=text,
             lang_code="auto",
@@ -284,7 +280,7 @@ def generate_clone(
         sf.write(output_path, audio_np, sample_rate)
 
     duration = len(audio_np) / sample_rate
-    print(f"Saved: {output_path} ({duration:.1f}s)", file=sys.stderr)
+    logger.info("Saved: %s (%.1fs)", output_path, duration)
     return TtsResult(path=output_path, duration_seconds=duration)
 
 
@@ -336,10 +332,11 @@ def generate_design(
 
     with _generate_lock:
         model = _get_model(model_id or MODELS["design"])
-        print(
-            f"Designing voice: '{instruct[:60]}...' (lang={lang_code})"
-            + (" [streaming]" if stream else ""),
-            file=sys.stderr,
+        logger.debug(
+            "Designing voice: instruct=%r (lang=%s)%s",
+            instruct,
+            lang_code,
+            " [streaming]" if stream else "",
         )
         results = model.generate(
             text=text,
@@ -361,7 +358,7 @@ def generate_design(
         sf.write(output_path, audio_np, sample_rate)
 
     duration = len(audio_np) / sample_rate
-    print(f"Saved: {output_path} ({duration:.1f}s)", file=sys.stderr)
+    logger.info("Saved: %s (%.1fs)", output_path, duration)
     return TtsResult(path=output_path, duration_seconds=duration)
 
 
