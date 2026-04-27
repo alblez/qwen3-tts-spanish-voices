@@ -6,7 +6,7 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from spanish_tts.engine import SPEED_MAX, SPEED_MIN, _apply_speed
+from spanish_tts.engine import SPEED_MAX, SPEED_MIN, TtsResult, _apply_speed
 
 try:
     import librosa  # noqa: F401
@@ -200,7 +200,7 @@ class TestMCPSpeedValidation:
 
                 def fake_generate(**kwargs):
                     captured.update(kwargs)
-                    return "/tmp/ok.wav"
+                    return TtsResult(path="/tmp/ok.wav", duration_seconds=1.0)
 
                 with patch("spanish_tts.mcp_server.generate", side_effect=fake_generate):
                     result = say(text="hola", voice="x", speed=None)
@@ -222,7 +222,7 @@ class TestMCPSpeedValidation:
 
                 def fake_generate(**kwargs):
                     captured.update(kwargs)
-                    return "/tmp/ok.wav"
+                    return TtsResult(path="/tmp/ok.wav", duration_seconds=1.0)
 
                 with patch("spanish_tts.mcp_server.generate", side_effect=fake_generate):
                     say(text="hola", voice="x")

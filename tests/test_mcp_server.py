@@ -5,6 +5,8 @@ import sys
 
 import pytest
 
+from spanish_tts.engine import TtsResult
+
 
 @pytest.fixture
 def bundled_presets(tmp_path, monkeypatch):
@@ -95,14 +97,13 @@ def test_say_accepts_relative_path_inside_output_dir(bundled_presets, tmp_path, 
 
     def fake_generate(**kwargs):
         captured.update(kwargs)
-        return kwargs["output"]
+        return TtsResult(path=kwargs["output"], duration_seconds=1.0)
 
     monkeypatch.setattr(mcp, "generate", fake_generate)
     monkeypatch.setattr(mcp, "get_defaults", lambda: {"speed": 1.0, "output_dir": str(tmp_path)})
 
     result = mcp.say(text="hola", voice="neutral_male", output="sub/out.wav")
-    # No error returned. The path may or may not exist yet; sf.info
-    # will fail which is fine — `duration_seconds` comes back None.
+    # No error returned.
     assert "error" not in result, result
     resolved = captured["output"]
     assert resolved.startswith(str(tmp_path.resolve()))
@@ -171,7 +172,7 @@ def test_say_accepts_absolute_path_inside_output_dir(bundled_presets, tmp_path, 
 
     def fake_generate(**kwargs):
         captured.update(kwargs)
-        return kwargs["output"]
+        return TtsResult(path=kwargs["output"], duration_seconds=1.0)
 
     monkeypatch.setattr(mcp, "generate", fake_generate)
     monkeypatch.setattr(mcp, "get_defaults", lambda: {"speed": 1.0, "output_dir": str(tmp_path)})

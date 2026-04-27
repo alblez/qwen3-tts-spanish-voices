@@ -2,7 +2,7 @@
 
 Covers lines in mcp_server.py that were uncovered by the existing test suite:
   - say(): empty/whitespace text, too-long text, voice not found, path OSError,
-    generate() exception, sf.info failure, stream=True on_chunk wiring
+    generate() exception, stream=True on_chunk wiring
   - list_all_voices(): clone accent field, exception fallback
   - demo(): empty text, partial failure loop
 """
@@ -10,10 +10,11 @@ Covers lines in mcp_server.py that were uncovered by the existing test suite:
 import importlib
 import logging
 import sys
-import types
 
 import pytest
 import yaml
+
+from spanish_tts.engine import TtsResult
 
 # ---------------------------------------------------------------------------
 # Fixture
@@ -36,18 +37,9 @@ def bundled_presets(tmp_path, monkeypatch):
         sys.modules.pop(mod, None)
 
 
-def _fake_sf_module(duration=2.0):
-    """Return a minimal soundfile stand-in whose info() returns a given duration."""
-
-    class _Info:
-        pass
-
-    inst = _Info()
-    inst.duration = duration
-
-    fake_sf = types.ModuleType("soundfile")
-    fake_sf.info = lambda p: inst
-    return fake_sf
+def _make_tts_result(path: str, duration: float = 1.23) -> TtsResult:
+    """Minimal TtsResult for patching engine.generate in tests."""
+    return TtsResult(path=path, duration_seconds=duration)
 
 
 # ---------------------------------------------------------------------------
@@ -75,8 +67,9 @@ class TestSayTextValidation:
         monkeypatch.setattr(
             mcp, "get_defaults", lambda: {"speed": 1.0, "output_dir": str(tmp_path)}
         )
-        monkeypatch.setattr(mcp, "generate", lambda **kw: str(tmp_path / "out.wav"))
-        monkeypatch.setitem(sys.modules, "soundfile", _fake_sf_module())
+        monkeypatch.setattr(
+            mcp, "generate", lambda **kw: _make_tts_result(str(tmp_path / "out.wav"))
+        )
         result = mcp.say(text="a" * 10000, voice="neutral_male")
         assert "error" not in result
 
@@ -162,25 +155,24 @@ class TestSayGenerateException:
 
 
 # ---------------------------------------------------------------------------
-# say() — sf.info() failure (line 145 → duration_seconds=None)
+# say() — duration_seconds always present (U3-19: engine-returned, never None)
 # ---------------------------------------------------------------------------
 
 
-class TestSaySfInfoFailure:
-    def test_broken_wav_returns_duration_none(self, bundled_presets, tmp_path, monkeypatch):
+class TestSayDurationAlwaysPresent:
+    def test_duration_seconds_is_float(self, bundled_presets, tmp_path, monkeypatch):
+        """say() returns duration_seconds as a float, always — never None."""
         mcp = bundled_presets
         monkeypatch.setattr(
             mcp, "get_defaults", lambda: {"speed": 1.0, "output_dir": str(tmp_path)}
         )
-        monkeypatch.setattr(mcp, "generate", lambda **kw: str(tmp_path / "out.wav"))
-
-        bad_sf = types.ModuleType("soundfile")
-        bad_sf.info = lambda p: (_ for _ in ()).throw(Exception("not a wav"))
-        monkeypatch.setitem(sys.modules, "soundfile", bad_sf)
-
+        monkeypatch.setattr(
+            mcp, "generate", lambda **kw: _make_tts_result(str(tmp_path / "out.wav"), 2.5)
+        )
         result = mcp.say(text="hola", voice="neutral_male")
         assert "error" not in result
-        assert result["duration_seconds"] is None
+        assert isinstance(result["duration_seconds"], float)
+        assert result["duration_seconds"] == pytest.approx(2.5, abs=0.01)
 
 
 # ---------------------------------------------------------------------------
@@ -199,10 +191,9 @@ class TestSayStreamWiring:
 
         def fake_generate(**kwargs):
             captured.update(kwargs)
-            return str(tmp_path / "out.wav")
+            return _make_tts_result(str(tmp_path / "out.wav"), 1.5)
 
         monkeypatch.setattr(mcp, "generate", fake_generate)
-        monkeypatch.setitem(sys.modules, "soundfile", _fake_sf_module(1.5))
 
         mcp.say(text="hola", voice="neutral_male", stream=True)
         assert captured.get("on_chunk") is not None
@@ -217,9 +208,10 @@ class TestSayStreamWiring:
         )
         captured = {}
         monkeypatch.setattr(
-            mcp, "generate", lambda **kw: (captured.update(kw), str(tmp_path / "x.wav"))[1]
+            mcp,
+            "generate",
+            lambda **kw: (captured.update(kw), _make_tts_result(str(tmp_path / "x.wav")))[1],
         )
-        monkeypatch.setitem(sys.modules, "soundfile", _fake_sf_module())
         mcp.say(text="hola", voice="neutral_male", stream=False)
         assert captured["on_chunk"] is None
 
@@ -293,7 +285,7 @@ class TestDemoErrorBranches:
         assert voices, "Need bundled voices for this test"
 
         def fake_generate(**kw):
-            return kw["output"]
+            return _make_tts_result(kw["output"])
 
         monkeypatch.setattr(mcp, "generate", fake_generate)
         result = mcp.demo(text="hola", output_dir=str(tmp_path / "demo_out"))
@@ -312,7 +304,7 @@ class TestDemoErrorBranches:
             name = kw["output"].split("/")[-1].replace(".wav", "")
             if name == first:
                 raise RuntimeError(f"{first} simulated failure")
-            return kw["output"]
+            return _make_tts_result(kw["output"])
 
         monkeypatch.setattr(mcp, "generate", fake_generate)
         result = mcp.demo(text="hola", output_dir=str(tmp_path / "partial"))
@@ -330,7 +322,7 @@ class TestDemoErrorBranches:
             lambda **kw: (
                 (_ for _ in ()).throw(RuntimeError("boom"))
                 if kw["output"].endswith(f"{first}.wav")
-                else kw["output"]
+                else _make_tts_result(kw["output"])
             ),
         )
         result = mcp.demo(text="hola", output_dir=str(tmp_path / "err_field"))
@@ -346,7 +338,7 @@ class TestDemoErrorBranches:
             name = kw["output"].split("/")[-1].replace(".wav", "")
             if name == first:
                 raise RuntimeError("demo kaboom")
-            return kw["output"]
+            return _make_tts_result(kw["output"])
 
         monkeypatch.setattr(mcp, "generate", boom)
         with caplog.at_level(logging.ERROR, logger="spanish_tts.mcp_server"):

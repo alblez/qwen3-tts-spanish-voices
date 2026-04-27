@@ -18,6 +18,8 @@ import sys
 import pytest
 from mcp.server.fastmcp.exceptions import ToolError
 
+from spanish_tts.engine import TtsResult
+
 # ---------------------------------------------------------------------------
 # Fixture: reload mcp_server against bundled presets (no user voices.yaml)
 # ---------------------------------------------------------------------------
@@ -141,14 +143,12 @@ class TestSayRejection:
 
 class TestSaySuccessShape:
     def test_say_returns_path_and_duration(self, mcp_module, monkeypatch, tmp_path):
-        """CONTRACT: success response has 'path' (str) and 'duration_seconds'."""
-        import numpy as np
-        import soundfile as sf
-
+        """CONTRACT: success response has 'path' (str) and 'duration_seconds' (float)."""
         out = str(tmp_path / "out.wav")
-        sf.write(out, np.zeros(4800, dtype=np.float32), 24000)
 
-        monkeypatch.setattr(mcp_module, "generate", lambda **kw: out)
+        monkeypatch.setattr(
+            mcp_module, "generate", lambda **kw: TtsResult(path=out, duration_seconds=0.2)
+        )
         monkeypatch.setattr(
             mcp_module, "get_defaults", lambda: {"speed": 1.0, "output_dir": str(tmp_path)}
         )
@@ -158,7 +158,7 @@ class TestSaySuccessShape:
         assert "path" in result
         assert isinstance(result["path"], str)
         assert "duration_seconds" in result
-        assert result["duration_seconds"] is None or isinstance(result["duration_seconds"], float)
+        assert isinstance(result["duration_seconds"], float)
 
     def test_say_error_response_has_error_key(self, mcp_module, monkeypatch, tmp_path):
         """CONTRACT: error response has 'error' (str)."""
@@ -252,16 +252,12 @@ class TestDemoShape:
 
     def test_demo_success_has_results_list(self, mcp_module, monkeypatch, tmp_path):
         """CONTRACT: success response has 'results' list."""
-        import numpy as np
-        import soundfile as sf
-
         call_count = {"n": 0}
 
         def fake_generate(**kw):
             call_count["n"] += 1
             out = str(tmp_path / f"out_{call_count['n']}.wav")
-            sf.write(out, np.zeros(2400, dtype=np.float32), 24000)
-            return out
+            return TtsResult(path=out, duration_seconds=0.1)
 
         monkeypatch.setattr(mcp_module, "generate", fake_generate)
         result = _call(mcp_module, "demo", {"text": "hola", "output_dir": str(tmp_path)})
@@ -271,13 +267,10 @@ class TestDemoShape:
 
     def test_demo_each_result_has_status(self, mcp_module, monkeypatch, tmp_path):
         """CONTRACT: each result entry has 'voice', 'status', and either 'path' or 'error'."""
-        import numpy as np
-        import soundfile as sf
 
         def fake_generate(**kw):
             out = str(tmp_path / "out.wav")
-            sf.write(out, np.zeros(2400, dtype=np.float32), 24000)
-            return out
+            return TtsResult(path=out, duration_seconds=0.1)
 
         monkeypatch.setattr(mcp_module, "generate", fake_generate)
         result = _call(mcp_module, "demo", {"text": "hola", "output_dir": str(tmp_path)})
@@ -292,9 +285,6 @@ class TestDemoShape:
 
     def test_demo_partial_failure_continues(self, mcp_module, monkeypatch, tmp_path):
         """CONTRACT: one voice failure does not abort the whole demo."""
-        import numpy as np
-        import soundfile as sf
-
         voice_names = list(mcp_module.list_voices().keys())
         assert len(voice_names) >= 2, "Need at least 2 voices for partial-failure test"
 
@@ -309,8 +299,7 @@ class TestDemoShape:
             if name == first_voice:
                 raise RuntimeError("simulated first-voice failure")
             out = str(tmp_path / f"out_{call_count['n']}.wav")
-            sf.write(out, np.zeros(2400, dtype=np.float32), 24000)
-            return out
+            return TtsResult(path=out, duration_seconds=0.1)
 
         monkeypatch.setattr(mcp_module, "generate", fake_generate)
         result = _call(mcp_module, "demo", {"text": "hola", "output_dir": str(tmp_path)})
