@@ -23,6 +23,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `[project.urls]`, `classifiers`, `keywords` added to `pyproject.toml`; `requires_mlx` marker registered (U3-20).
 
 ### Changed
+- `load_voices` now falls back to bundled presets (with a logged error) when the user's `voices.yaml` contains schema-invalid entries, in addition to the existing `YAMLError` fallback. The user's corrupt file is NOT overwritten.
 - `config.py` `save_voices()` now writes atomically via `.yaml.tmp` + `os.replace` (U3-3).
 - `config.py` `load_voices()` catches `yaml.YAMLError`, falls back to bundled presets, never overwrites corrupt user file (U3-3).
 - `config.py` validates `SPANISH_TTS_CONFIG` env var resolves under `$HOME` before `mkdir` (U3-3).
@@ -33,6 +34,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Logger names unified under `spanish_tts.*` namespace (U3-3).
 
 ### Fixed
+- Wire `_validate_voices_schema` into `load_voices`/`save_voices` so malformed voice entries can no longer pass through unchecked. Previously the validator was defined and tested but never called in production.
 - Speed boundary tests: parametrized NaN/±inf/edge-value rejection by `_apply_speed` (U3-6).
 
 ---

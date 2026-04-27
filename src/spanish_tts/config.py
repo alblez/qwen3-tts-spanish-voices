@@ -140,6 +140,20 @@ def load_voices(voices_file: Path | None = None) -> dict[str, Any]:
             f"voices.yaml must be a YAML mapping (dict), got {type(data).__name__} in {voices_file}"
         )
 
+    try:
+        _validate_voices_schema(data, voices_file)
+    except ValueError as exc:
+        logger.error(
+            "Schema-invalid voices.yaml at %s: %s; falling back to bundled "
+            "presets. Fix or delete the file to restore normal operation.",
+            voices_file,
+            exc,
+        )
+        data = yaml.safe_load(DEFAULT_VOICES_FILE.read_text(encoding="utf-8"))
+        # Re-validate presets; if THOSE are broken the install is corrupt
+        # and we should raise.
+        _validate_voices_schema(data, DEFAULT_VOICES_FILE)
+
     return data
 
 
@@ -159,6 +173,7 @@ def save_voices(data: dict[str, Any], voices_file: Path | None = None) -> None:
         voices_file = get_config_dir() / VOICES_FILENAME
 
     voices_file.parent.mkdir(parents=True, exist_ok=True)
+    _validate_voices_schema(data, voices_file)
     tmp = voices_file.with_suffix(".yaml.tmp")
     with open(tmp, "w", encoding="utf-8") as fh:
         yaml.dump(data, fh, default_flow_style=False, allow_unicode=True, sort_keys=False)
