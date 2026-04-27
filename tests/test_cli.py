@@ -47,6 +47,7 @@ class TestSayCommand:
         assert "--voice" in result.output
         assert "--speed" in result.output
         assert "--play" in result.output
+        assert "--stream" in result.output
 
 
 class TestAddRefCommand:

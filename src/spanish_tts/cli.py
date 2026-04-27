@@ -31,7 +31,8 @@ def cli():
 )
 @click.option("--output", "-o", default=None, help="Output .wav path.")
 @click.option("--play", "-p", is_flag=True, help="Auto-play with afplay after generating.")
-def say(text, voice, speed, output, play):
+@click.option("--stream", is_flag=True, default=False, help="Use streaming decode (lower memory).")
+def say(text, voice, speed, output, play, stream):
     """Generate speech from text using a registered voice."""
     defaults = get_defaults()
     voice_config = get_voice(voice)
@@ -51,6 +52,7 @@ def say(text, voice, speed, output, play):
         speed=effective_speed,
         output=output,
         output_dir=output_dir,
+        stream=stream,
     )
     # Print path to stdout for piping
     click.echo(result)
