@@ -4,6 +4,7 @@ import logging
 import sys
 import threading
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
@@ -11,6 +12,29 @@ import numpy as np
 import soundfile as sf
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class TtsResult:
+    """Return value from all ``generate_*`` engine entry points.
+
+    Attributes:
+        path: Absolute path to the written ``.wav`` file.
+        duration_seconds: Exact duration computed from the raw audio array
+            (``len(audio) / sample_rate``).  Always a finite float — never
+            re-read from the file via ``sf.info``.
+
+    The ``__str__`` shim returns ``self.path`` so existing callers that
+    treat the result as a string (``click.echo(result)``, f-strings, etc.)
+    continue working without modification.
+    """
+
+    path: str
+    duration_seconds: float
+
+    def __str__(self) -> str:  # backward-compat shim
+        return self.path
+
 
 # Speed range constants
 SPEED_MIN, SPEED_MAX = 0.5, 2.0
@@ -178,7 +202,7 @@ def generate_clone(
     stream: bool = False,
     streaming_interval: float = 2.0,
     on_chunk: Callable[[int, int, float], None] | None = None,
-) -> str:
+) -> TtsResult:
     """Generate speech by cloning a reference voice.
 
     Args:
@@ -194,7 +218,9 @@ def generate_clone(
         on_chunk: Optional callback(chunk_index, total_samples, est_duration).
 
     Returns:
-        Path to generated .wav file.
+        :class:`TtsResult` with the path to the generated ``.wav`` and its
+        exact duration.  ``str(result)`` returns ``result.path`` for
+        backward-compatible callers.
     """
     ref_path = Path(ref_audio).expanduser()
     if not ref_path.exists():
@@ -228,7 +254,7 @@ def generate_clone(
 
     duration = len(audio_np) / sample_rate
     print(f"Saved: {output_path} ({duration:.1f}s)", file=sys.stderr)
-    return output_path
+    return TtsResult(path=output_path, duration_seconds=duration)
 
 
 def generate_design(
@@ -242,7 +268,7 @@ def generate_design(
     stream: bool = False,
     streaming_interval: float = 2.0,
     on_chunk: Callable[[int, int, float], None] | None = None,
-) -> str:
+) -> TtsResult:
     """Generate speech from a voice description.
 
     Args:
@@ -258,7 +284,9 @@ def generate_design(
         on_chunk: Optional callback(chunk_index, total_samples, est_duration).
 
     Returns:
-        Path to generated .wav file.
+        :class:`TtsResult` with the path to the generated ``.wav`` and its
+        exact duration.  ``str(result)`` returns ``result.path`` for
+        backward-compatible callers.
     """
     lang_map = {
         "Spanish": "spanish",
@@ -302,7 +330,7 @@ def generate_design(
 
     duration = len(audio_np) / sample_rate
     print(f"Saved: {output_path} ({duration:.1f}s)", file=sys.stderr)
-    return output_path
+    return TtsResult(path=output_path, duration_seconds=duration)
 
 
 def generate(
@@ -314,7 +342,7 @@ def generate(
     stream: bool = False,
     streaming_interval: float = 2.0,
     on_chunk: Callable[[int, int, float], None] | None = None,
-) -> str:
+) -> TtsResult:
     """Generate speech using a voice config from the registry.
 
     Args:
@@ -328,7 +356,9 @@ def generate(
         on_chunk: Optional callback(chunk_index, total_samples, est_duration).
 
     Returns:
-        Path to generated .wav file.
+        :class:`TtsResult` with the path to the generated ``.wav`` and its
+        exact duration.  ``str(result)`` returns ``result.path`` for
+        backward-compatible callers.
     """
     voice_type = voice_config.get("type", "design")
     language = voice_config.get("language", "Spanish")

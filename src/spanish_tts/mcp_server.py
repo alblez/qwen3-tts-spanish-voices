@@ -125,7 +125,7 @@ def say(
         logger.info("Chunk %d: %.1fs generated so far", idx, est_duration)
 
     try:
-        path = generate(
+        result = generate(
             text=text,
             voice_config=voice_config,
             speed=effective_speed,
@@ -138,15 +138,7 @@ def say(
         logger.error("generate() failed: %s", e, exc_info=True)
         return {"error": f"Generation failed: {e}"}
 
-    try:
-        import soundfile as sf
-
-        info = sf.info(path)
-        duration = round(info.duration, 2)
-    except Exception:
-        duration = None
-
-    return {"path": path, "duration_seconds": duration}
+    return {"path": result.path, "duration_seconds": round(result.duration_seconds, 2)}
 
 
 @mcp.tool()
@@ -210,13 +202,13 @@ def demo(text: str, output_dir: str = "/tmp/spanish-tts-demo", speed: float = 1.
     results = []
     for name, config in voices.items():
         try:
-            path = generate(
+            result = generate(
                 text=text,
                 voice_config=config,
                 speed=speed,
                 output=str(out / f"{name}.wav"),
             )
-            results.append({"voice": name, "path": path, "status": "ok"})
+            results.append({"voice": name, "path": result.path, "status": "ok"})
         except Exception as e:
             logger.error("demo generate for %s failed: %s", name, e)
             results.append({"voice": name, "error": str(e), "status": "failed"})
