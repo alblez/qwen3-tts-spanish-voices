@@ -2,6 +2,7 @@
 
 import logging
 import sys
+import threading
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
@@ -20,7 +21,22 @@ MODELS = {
     "design": "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit",
 }
 
-_model_cache = {}
+# Thread-safety: _model_cache is shared across threads.
+# _cache_lock guards the cache dict — prevents duplicate loads when two threads
+# call _get_model simultaneously for the same model_id.
+# _generate_lock serializes the entire generation pipeline (model.generate →
+# _collect_audio → _apply_speed → sf.write).  The MLX/MPS execution environment
+# is not thread-safe; and stdio-MCP is pragmatically single-request-at-a-time,
+# so this lock imposes no real-world throughput cost.
+_model_cache: dict = {}
+_cache_lock = threading.Lock()
+_generate_lock = threading.Lock()
+
+
+def _clear_cache() -> None:
+    """Evict all cached models.  Used in tests to reset between runs."""
+    with _cache_lock:
+        _model_cache.clear()
 
 
 def _apply_speed(audio: np.ndarray, speed: float, sample_rate: int) -> np.ndarray:
@@ -92,13 +108,19 @@ def _apply_speed(audio: np.ndarray, speed: float, sample_rate: int) -> np.ndarra
 
 
 def _get_model(model_id: str):
-    """Load MLX model with caching."""
-    if model_id not in _model_cache:
-        from mlx_audio.tts import load_model
+    """Load MLX model with thread-safe caching.
 
-        print(f"Loading model: {model_id}", file=sys.stderr)
-        _model_cache[model_id] = load_model(model_id)
-    return _model_cache[model_id]
+    Uses a module-level lock to ensure at most one thread loads a given
+    model_id; subsequent callers receive the cached instance immediately
+    without touching the MLX runtime.
+    """
+    with _cache_lock:
+        if model_id not in _model_cache:
+            from mlx_audio.tts import load_model
+
+            print(f"Loading model: {model_id}", file=sys.stderr)
+            _model_cache[model_id] = load_model(model_id)
+        return _model_cache[model_id]
 
 
 def _resolve_output(output: str | None, prefix: str, output_dir: str | None = None) -> str:
@@ -174,29 +196,32 @@ def generate_clone(
     Returns:
         Path to generated .wav file.
     """
-    model = _get_model(model_id or MODELS["clone"])
-
     ref_path = Path(ref_audio).expanduser()
     if not ref_path.exists():
         raise FileNotFoundError(f"Reference audio not found: {ref_path}")
 
-    print(f"Cloning voice from: {ref_path}" + (" [streaming]" if stream else ""), file=sys.stderr)
-    results = model.generate(
-        text=text,
-        lang_code="auto",
-        ref_audio=str(ref_path),
-        ref_text=ref_text,
-        speed=speed,  # upstream no-op; real stretch is post-process
-        stream=stream,
-        streaming_interval=streaming_interval,
-    )
+    with _generate_lock:
+        model = _get_model(model_id or MODELS["clone"])
+        print(
+            f"Cloning voice from: {ref_path}" + (" [streaming]" if stream else ""),
+            file=sys.stderr,
+        )
+        results = model.generate(
+            text=text,
+            lang_code="auto",
+            ref_audio=str(ref_path),
+            ref_text=ref_text,
+            speed=speed,  # upstream no-op; real stretch is post-process
+            stream=stream,
+            streaming_interval=streaming_interval,
+        )
 
-    output_path = _resolve_output(output, "clone", output_dir)
-    audio_np = _collect_audio(results, stream=stream, on_chunk=on_chunk)
+        output_path = _resolve_output(output, "clone", output_dir)
+        audio_np = _collect_audio(results, stream=stream, on_chunk=on_chunk)
 
-    sample_rate = model.sample_rate
-    audio_np = _apply_speed(audio_np, speed, sample_rate)
-    sf.write(output_path, audio_np, sample_rate)
+        sample_rate = model.sample_rate
+        audio_np = _apply_speed(audio_np, speed, sample_rate)
+        sf.write(output_path, audio_np, sample_rate)
 
     duration = len(audio_np) / sample_rate
     print(f"Saved: {output_path} ({duration:.1f}s)", file=sys.stderr)
@@ -232,8 +257,6 @@ def generate_design(
     Returns:
         Path to generated .wav file.
     """
-    model = _get_model(model_id or MODELS["design"])
-
     lang_map = {
         "Spanish": "spanish",
         "English": "english",
@@ -248,26 +271,28 @@ def generate_design(
     }
     lang_code = lang_map.get(language, "spanish")
 
-    print(
-        f"Designing voice: '{instruct[:60]}...' (lang={lang_code})"
-        + (" [streaming]" if stream else ""),
-        file=sys.stderr,
-    )
-    results = model.generate(
-        text=text,
-        lang_code=lang_code,
-        instruct=instruct,
-        speed=speed,  # upstream no-op; real stretch is post-process
-        stream=stream,
-        streaming_interval=streaming_interval,
-    )
+    with _generate_lock:
+        model = _get_model(model_id or MODELS["design"])
+        print(
+            f"Designing voice: '{instruct[:60]}...' (lang={lang_code})"
+            + (" [streaming]" if stream else ""),
+            file=sys.stderr,
+        )
+        results = model.generate(
+            text=text,
+            lang_code=lang_code,
+            instruct=instruct,
+            speed=speed,  # upstream no-op; real stretch is post-process
+            stream=stream,
+            streaming_interval=streaming_interval,
+        )
 
-    output_path = _resolve_output(output, "design", output_dir)
-    audio_np = _collect_audio(results, stream=stream, on_chunk=on_chunk)
+        output_path = _resolve_output(output, "design", output_dir)
+        audio_np = _collect_audio(results, stream=stream, on_chunk=on_chunk)
 
-    sample_rate = model.sample_rate
-    audio_np = _apply_speed(audio_np, speed, sample_rate)
-    sf.write(output_path, audio_np, sample_rate)
+        sample_rate = model.sample_rate
+        audio_np = _apply_speed(audio_np, speed, sample_rate)
+        sf.write(output_path, audio_np, sample_rate)
 
     duration = len(audio_np) / sample_rate
     print(f"Saved: {output_path} ({duration:.1f}s)", file=sys.stderr)
