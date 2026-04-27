@@ -107,6 +107,61 @@ class TestAddVoice:
         voice = get_voice("test_clone", tmp_voices_file)
         assert voice["type"] == "design"
 
+    def test_overwrite_same_type_emits_warning(self, tmp_voices_file, caplog):
+        """Overwriting a voice with the same type emits a WARNING."""
+        import logging
+
+        with caplog.at_level(logging.WARNING, logger="spanish-tts.config"):
+            add_voice(
+                "test_clone",
+                {"type": "clone", "ref_audio": "/tmp/new.wav"},
+                tmp_voices_file,
+            )
+        assert len(caplog.records) == 1
+        rec = caplog.records[0]
+        assert rec.levelno == logging.WARNING
+        assert "test_clone" in rec.message
+        assert "overwritten" in rec.message.lower()
+
+    def test_overwrite_type_change_emits_loud_warning(self, tmp_voices_file, caplog):
+        """Overwriting a voice with a different type emits a WARNING flagging the type change."""
+        import logging
+
+        with caplog.at_level(logging.WARNING, logger="spanish-tts.config"):
+            add_voice(
+                "test_design",
+                {"type": "clone", "ref_audio": "/tmp/new.wav"},
+                tmp_voices_file,
+            )
+        assert len(caplog.records) == 1
+        rec = caplog.records[0]
+        assert rec.levelno == logging.WARNING
+        assert "test_design" in rec.message
+        assert "design" in rec.message
+        assert "clone" in rec.message
+
+    def test_allow_overwrite_false_raises(self, tmp_voices_file):
+        """allow_overwrite=False raises ValueError when voice already exists."""
+        with pytest.raises(ValueError, match="test_clone"):
+            add_voice(
+                "test_clone",
+                {"type": "clone", "ref_audio": "/tmp/new.wav"},
+                tmp_voices_file,
+                allow_overwrite=False,
+            )
+
+    def test_allow_overwrite_false_new_voice_ok(self, tmp_voices_file):
+        """allow_overwrite=False does NOT raise when adding a brand-new voice."""
+        add_voice(
+            "brand_new",
+            {"type": "design", "instruct": "novel"},
+            tmp_voices_file,
+            allow_overwrite=False,
+        )
+        voice = get_voice("brand_new", tmp_voices_file)
+        assert voice is not None
+        assert voice["instruct"] == "novel"
+
 
 class TestGetDefaults:
     def test_returns_defaults(self, tmp_voices_file):
