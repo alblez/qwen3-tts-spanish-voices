@@ -4,8 +4,10 @@
 #   pre-commit install                     # commit-stage hooks
 #   pre-commit install --hook-type pre-push # push-stage pytest smoke
 
-default_language_version:
-  python: python3.11
+# Note: default_language_version is intentionally absent so pre-commit uses
+# whatever Python is on PATH. CI uses python3.12; local devs use python3.11.
+# The pytest-fast hook uses `language: system` so it always runs in the
+# caller's active env.
 
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
