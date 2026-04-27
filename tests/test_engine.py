@@ -73,7 +73,8 @@ class TestValidateText:
         assert _validate_text("cafe\u0301") == "cafe\u0301"
 
     def test_valid_mixed_scripts(self):
-        assert _validate_text("Spanish: ñ, Arabic: نعم, CJK: 你好") is not None
+        text = "Spanish: ñ, Arabic: نعم, CJK: 你好"
+        assert _validate_text(text) == text
 
     def test_valid_long_accent(self):
         long_text = "a" * 9999 + "ñ"
@@ -88,7 +89,7 @@ class TestValidateText:
             _validate_text("   \t\n")
 
     def test_none_raises(self):
-        with pytest.raises((ValueError, AttributeError)):
+        with pytest.raises(ValueError, match="text is empty"):
             _validate_text(None)  # type: ignore[arg-type]
 
     def test_nul_byte_raises(self):

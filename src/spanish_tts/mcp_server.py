@@ -196,7 +196,7 @@ def list_all_voices() -> dict:
         return {"voices": summary}
     except Exception as e:
         logger.error("list_voices() failed: %s", e, exc_info=True)
-        return {"error": f"Failed to list voices: {e}", "code": "generation_failed"}
+        return {"error": f"Failed to list voices: {e}", "code": "internal_error"}
 
 
 @mcp.tool()
