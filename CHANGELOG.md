@@ -11,6 +11,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- `TtsResult` dataclass in `engine.py` — frozen, `path: str`, `duration_seconds: float`, `__str__` returns path for backward-compat (U3-19).
+- `TtsResult` exported from `spanish_tts.__init__` (U3-19).
 - `CONTRACT.md` — stable JSON shapes + backward-compat policy for the MCP server (U3-5 part 1).
 - `LICENSE` file with full MIT text; PEP 639 migration in `pyproject.toml` (U3-1).
 - `SECURITY.md` with supported versions, private advisory link, and 72h ack SLA (U3-11).
@@ -23,6 +25,9 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `[project.urls]`, `classifiers`, `keywords` added to `pyproject.toml`; `requires_mlx` marker registered (U3-20).
 
 ### Changed
+- `generate_clone`, `generate_design`, `generate` now return `TtsResult` instead of `str`. `str(result)` still returns the path — backward-compat callers unaffected (U3-19).
+- MCP `say` `duration_seconds` field now always a float (engine-computed). The `sf.info` re-read and its bare-except dead branch are removed (U3-19).
+- `CONTRACT.md` updated: `duration_seconds` documented as always-present finite float.
 - `load_voices` now falls back to bundled presets (with a logged error) when the user's `voices.yaml` contains schema-invalid entries, in addition to the existing `YAMLError` fallback. The user's corrupt file is NOT overwritten.
 - `config.py` `save_voices()` now writes atomically via `.yaml.tmp` + `os.replace` (U3-3).
 - `config.py` `load_voices()` catches `yaml.YAMLError`, falls back to bundled presets, never overwrites corrupt user file (U3-3).

@@ -27,9 +27,10 @@ Synthesise speech from text.
 {"path": "<absolute-path-to-wav>", "duration_seconds": <float>}
 ```
 
-> Note: `duration_seconds` is returned in the engine layer (see U3-19).
-> Until U3-19 lands the field may be absent; callers should treat it as
-> optional.
+> `duration_seconds` is computed in the engine layer (U3-19) from the raw
+> audio array (`len(audio) / sample_rate`). It is **always a finite float**,
+> never `null` / `None`. Callers may rely on this field being present and
+> numeric on every successful `say` response.
 
 **Error response**
 

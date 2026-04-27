@@ -58,7 +58,7 @@ def say(text, voice, speed, output, play):
     if play:
         import subprocess
 
-        subprocess.run(["afplay", result])
+        subprocess.run(["afplay", str(result)])
 
 
 @cli.command("list")
