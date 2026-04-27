@@ -1,0 +1,51 @@
+NOTICE
+
+qwen3-tts-spanish-voices
+Copyright (c) 2025-2026 Alberto González Rouillé
+Licensed under the MIT License. See LICENSE for the full text.
+
+---
+
+This software uses the following third-party components:
+
+## Qwen3-TTS
+
+Model weights: mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit and
+               mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit
+
+Licensed under the Apache License, Version 2.0 (the "License").
+See https://huggingface.co/Qwen/Qwen3-TTS for the original model card.
+
+Derived from research described in:
+  Qwen3-TTS Technical Report (arXiv:2601.15621)
+  Qwen Team, Alibaba Group, 2025
+
+The mlx-community re-uploads at Hugging Face are re-quantised variants
+distributed with the same Apache-2.0 licence; see the individual model
+cards for provenance.
+
+## mlx-audio
+
+https://github.com/Blaizzy/mlx-audio
+Licensed under the MIT License.
+
+## mlx-lm
+
+https://github.com/ml-explore/mlx-examples
+Licensed under the MIT License.
+
+## VoxForge Spanish Corpus (CIEMPIESS)
+
+Dataset: https://huggingface.co/datasets/ciempiess/voxforge_spanish
+Original corpus: http://www.ciempiess.org/
+
+Licensed under the GNU General Public License, Version 3 (GPL-3.0).
+
+Clone voices built from this corpus (via scripts/curate.py) inherit the
+GPL-3.0 licence of the underlying audio recordings. Synthesised WAV
+files generated from VoxForge-derived reference audio are therefore also
+subject to GPL-3.0 terms.
+
+The four bundled design voices (neutral_male, neutral_female,
+energetic_male, warm_female) are NOT derived from VoxForge audio and
+carry only the MIT licence of this package.
