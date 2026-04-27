@@ -238,6 +238,29 @@ class TestLoadVoicesResilience:
         load_voices(bad)  # should not raise, should not overwrite
         assert bad.read_text(encoding="utf-8") == original_content
 
+    def test_load_voices_rejects_unknown_type(self, tmp_path, caplog):
+        """Voice with unknown type logs error and returns bundled presets (not raises)."""
+        bad = tmp_path / VOICES_FILENAME
+        bad.write_text(
+            "voices:\n  bogus_voice:\n    type: bogus\n    instruct: x\n", encoding="utf-8"
+        )
+        with caplog.at_level(logging.ERROR, logger="spanish_tts.config"):
+            data = load_voices(bad)
+        assert any("Schema-invalid" in r.message for r in caplog.records)
+        # Falls back to bundled presets.
+        assert isinstance(data.get("voices"), dict)
+        assert "neutral_male" in data["voices"]
+
+    def test_load_voices_rejects_missing_ref_audio(self, tmp_path, caplog):
+        """Clone voice without ref_audio logs error and returns bundled presets."""
+        bad = tmp_path / VOICES_FILENAME
+        bad.write_text("voices:\n  no_ref_clone:\n    type: clone\n", encoding="utf-8")
+        with caplog.at_level(logging.ERROR, logger="spanish_tts.config"):
+            data = load_voices(bad)
+        assert any("Schema-invalid" in r.message for r in caplog.records)
+        assert isinstance(data.get("voices"), dict)
+        assert "neutral_male" in data["voices"]
+
 
 class TestSaveVoicesAtomic:
     def test_atomic_write_succeeds(self, tmp_path):
@@ -265,15 +288,28 @@ class TestSaveVoicesAtomic:
 
         monkeypatch.setattr(os, "replace", boom)
         with pytest.raises(OSError, match="simulated disk-full"):
-            save_voices({"voices": {"corrupted": {}}}, vf)
+            save_voices({"voices": {"new_voice": {"type": "design", "instruct": "valid"}}}, vf)
 
-        # Original file unchanged; the "corrupted" key must NOT be present.
+        # Original file unchanged; the "new_voice" key must NOT be present.
         reloaded = load_voices(vf)
         assert "original" in reloaded["voices"]
-        assert "corrupted" not in reloaded["voices"]
+        assert "new_voice" not in reloaded["voices"]
         # The tmp file may remain on disk after a failed replace — that is
         # acceptable (it won't be confused with the real file due to the .tmp
         # suffix), but the original target must be intact.
+
+
+class TestSaveVoicesSchemaValidation:
+    def test_save_voices_rejects_invalid_schema(self, tmp_path):
+        """save_voices raises ValueError for invalid schema BEFORE writing tmp file."""
+        vf = tmp_path / VOICES_FILENAME
+        invalid_data = {"voices": {"bad_voice": {"type": "bogus", "instruct": "x"}}}
+        with pytest.raises(ValueError, match="invalid type"):
+            save_voices(invalid_data, vf)
+        # No tmp file should have been written.
+        assert not vf.with_suffix(".yaml.tmp").exists()
+        # Target file should not exist either.
+        assert not vf.exists()
 
 
 class TestVoicesSchemaValidation:
