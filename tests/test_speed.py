@@ -164,7 +164,8 @@ class TestCLISpeedValidation:
                 with patch("spanish_tts.cli.get_defaults", return_value={}):
                     result = runner.invoke(say, ["test", "--speed", "0.5"])
                     # Should not error on speed parsing
-                    assert "out of range" not in result.output.lower() or result.exit_code == 0
+                    assert "out of range" not in result.output.lower()
+                    assert result.exit_code == 0
 
     def test_cli_speed_accept_boundary_max(self):
         """CLI accepts --speed 2.0."""
@@ -179,7 +180,8 @@ class TestCLISpeedValidation:
             ):
                 with patch("spanish_tts.cli.get_defaults", return_value={}):
                     result = runner.invoke(say, ["test", "--speed", "2.0"])
-                    assert "out of range" not in result.output.lower() or result.exit_code == 0
+                    assert "out of range" not in result.output.lower()
+                    assert result.exit_code == 0
 
 
 class TestMCPSpeedValidation:
