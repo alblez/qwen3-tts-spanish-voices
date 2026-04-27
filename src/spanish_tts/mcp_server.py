@@ -16,6 +16,7 @@ Hermes config.yaml:
 import logging
 import math
 import sys
+import tempfile
 from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
@@ -26,6 +27,53 @@ from spanish_tts.engine import generate
 logger = logging.getLogger("spanish_tts.mcp_server")
 
 mcp = FastMCP("spanish-tts")
+
+
+def _sandbox_path(path_str: str, safe_root: Path) -> "tuple[str | None, dict | None]":
+    """Validate *path_str* resolves inside *safe_root*.
+
+    Performs the MCP-1 path-traversal guard: structural rejections (empty /
+    NUL), resolve, safe_root equality check, and relative_to check.
+
+    Returns:
+        ``(resolved_str, None)`` on success.
+        ``(None, error_dict)`` on failure — the caller should return the dict.
+    """
+    if path_str == "" or "\x00" in path_str:
+        return None, {
+            "error": f"path {path_str!r} is not a valid filename",
+            "code": "path_invalid",
+        }
+    try:
+        candidate = (
+            (safe_root / path_str).resolve()
+            if not Path(path_str).is_absolute()
+            else Path(path_str).resolve()
+        )
+    except (OSError, ValueError) as e:
+        return None, {
+            "error": f"path {path_str!r} cannot be resolved: {e}",
+            "code": "path_invalid",
+        }
+    if candidate == safe_root:
+        return None, {
+            "error": (
+                f"path {path_str!r} resolves to the safe root itself; "
+                "supply a filename/subdirectory or omit the parameter."
+            ),
+            "code": "path_is_dir",
+        }
+    try:
+        candidate.relative_to(safe_root)
+    except ValueError:
+        return None, {
+            "error": (
+                f"path {path_str!r} escapes safe root {str(safe_root)!r}. "
+                "MCP refuses path traversal."
+            ),
+            "code": "path_escape",
+        }
+    return str(candidate), None
 
 
 @mcp.tool()
@@ -92,60 +140,15 @@ def say(
     output_dir = defaults.get("output_dir", "~/tts-output/spanish")
 
     # MCP-1 path-traversal hardening. If the caller supplied `output`,
-    # it MUST land inside output_dir once resolved. Rejects absolute
-    # paths and ../../escape attempts. Asymmetric with the CLI path
-    # on purpose: `engine.generate` still accepts arbitrary paths for
+    # it MUST land inside output_dir once resolved. Asymmetric with the CLI
+    # path on purpose: `engine.generate` still accepts arbitrary paths for
     # local-user invocations. Only the MCP tool is sandboxed.
     if output is not None:
-        # Quick structural rejections before touching the filesystem:
-        # empty string, NUL byte (pathlib would raise mid-resolve with
-        # a ValueError that escapes our error-dict contract).
-        if output == "" or "\x00" in output:
-            return {
-                "error": f"output path {output!r} is not a valid filename",
-                "code": "path_invalid",
-            }
-
         safe_root = Path(output_dir).expanduser().resolve()
-        # Join then resolve so both relative and absolute `output`
-        # values get normalised against the same safe_root. resolve()
-        # follows symlinks, so a symlink inside safe_root pointing out
-        # is caught by the relative_to check below.
-        try:
-            candidate = (
-                (safe_root / output).resolve()
-                if not Path(output).is_absolute()
-                else Path(output).resolve()
-            )
-        except (OSError, ValueError) as e:
-            return {
-                "error": f"output path {output!r} cannot be resolved: {e}",
-                "code": "path_invalid",
-            }
-
-        # Reject writing to safe_root itself — it is a directory and
-        # engine.generate would fail downstream with a less clear error.
-        if candidate == safe_root:
-            return {
-                "error": (
-                    f"output path {output!r} resolves to output_dir "
-                    "itself; supply a filename under it or omit `output`."
-                ),
-                "code": "path_is_dir",
-            }
-
-        try:
-            candidate.relative_to(safe_root)
-        except ValueError:
-            return {
-                "error": (
-                    f"output path {output!r} escapes output_dir "
-                    f"{str(safe_root)!r}. MCP refuses path traversal; "
-                    "use a path relative to output_dir or omit `output`."
-                ),
-                "code": "path_escape",
-            }
-        output = str(candidate)
+        resolved, err = _sandbox_path(output, safe_root)
+        if err is not None:
+            return err
+        output = resolved
 
     def _on_chunk(idx: int, total_samples: int, est_duration: float) -> None:
         logger.info("Chunk %d: %.1fs generated so far", idx, est_duration)
@@ -206,6 +209,8 @@ def demo(text: str, output_dir: str = "/tmp/spanish-tts-demo", speed: float = 1.
     Args:
         text: Text to synthesize (Spanish).
         output_dir: Directory for output files (default: /tmp/spanish-tts-demo).
+            Must resolve under the system temp directory or the user's home
+            directory. Path-traversal attempts are rejected.
         speed: Speed factor 0.5-2.0 (default: 1.0).
 
     Returns:
@@ -213,19 +218,43 @@ def demo(text: str, output_dir: str = "/tmp/spanish-tts-demo", speed: float = 1.
     """
     if not text or not text.strip():
         return {"error": "text is empty", "code": "text_empty"}
+    if len(text) > 10000:
+        return {
+            "error": f"text too long ({len(text)} chars, max 10000)",
+            "code": "text_too_long",
+        }
     if not math.isfinite(speed):
         return {"error": f"speed must be a finite number, got {speed}", "code": "speed_not_finite"}
     if not (0.5 <= speed <= 2.0):
         return {"error": f"speed out of range 0.5-2.0: {speed}", "code": "speed_out_of_range"}
 
-    from pathlib import Path
+    # Sandbox output_dir to a safe area. Accept paths under any of:
+    #   - /tmp (resolved) — covers the default /tmp/spanish-tts-demo
+    #   - tempfile.gettempdir() — platform temp on macOS (/var/folders/...)
+    #   - $HOME — for user-configured paths
+    canonical_tmp = Path("/tmp").resolve()  # /private/tmp on macOS
+    platform_tmp = Path(tempfile.gettempdir()).resolve()
+    home = Path.home().resolve()
+
+    resolved_out: str | None = None
+    last_err: dict | None = None
+    for safe_root in (canonical_tmp, platform_tmp, home):
+        _resolved, err = _sandbox_path(output_dir, safe_root)
+        if _resolved is not None:
+            resolved_out = _resolved
+            break
+        last_err = err
+    if resolved_out is None:
+        return last_err  # type: ignore[return-value]
+
+    from pathlib import Path as _Path
+
+    out = _Path(resolved_out)
+    out.mkdir(parents=True, exist_ok=True)
 
     voices = list_voices()
     if not voices:
         return {"error": "No voices registered", "code": "voices_empty"}
-
-    out = Path(output_dir)
-    out.mkdir(parents=True, exist_ok=True)
 
     results = []
     for name, config in voices.items():

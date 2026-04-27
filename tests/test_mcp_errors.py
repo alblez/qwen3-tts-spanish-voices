@@ -422,3 +422,51 @@ class TestErrorCodeField:
         result = mcp.demo(text="hola")
         assert "error" in result
         assert result["code"] == "voices_empty"
+
+
+# ---------------------------------------------------------------------------
+# U3-7: demo() sandbox + text cap (mirrors MCP-1 matrix)
+# ---------------------------------------------------------------------------
+
+
+class TestDemoSandbox:
+    """U3-7: demo(output_dir=...) path-traversal guard mirrors MCP-1 say(output=...)."""
+
+    def test_demo_rejects_nul_in_output_dir(self, bundled_presets):
+        result = bundled_presets.demo(text="hola", output_dir="/tmp/foo\x00bar")
+        assert "error" in result
+        assert result["code"] == "path_invalid"
+
+    def test_demo_rejects_absolute_escape(self, bundled_presets):
+        result = bundled_presets.demo(text="hola", output_dir="/etc/cron.d")
+        assert "error" in result
+        assert result["code"] == "path_escape"
+
+    def test_demo_accepts_default_tmp_path(self, bundled_presets, monkeypatch):
+        mcp = bundled_presets
+        monkeypatch.setattr(mcp, "list_voices", lambda: {})
+        # Default /tmp/spanish-tts-demo must pass sandbox
+        result = mcp.demo(text="hola", output_dir="/tmp/spanish-tts-demo")
+        # sandbox passed → voices_empty (not a path error)
+        assert result.get("code") != "path_escape", result
+        assert result.get("code") != "path_invalid", result
+
+    def test_demo_accepts_home_subdir(self, bundled_presets, monkeypatch, tmp_path):
+
+        mcp = bundled_presets
+        monkeypatch.setattr(mcp, "list_voices", lambda: {})
+        # tmp_path is under $HOME on CI; use a path that's definitely under home
+        home_sub = str(tmp_path)
+        result = mcp.demo(text="hola", output_dir=home_sub)
+        assert result.get("code") not in ("path_escape", "path_invalid"), result
+
+    def test_demo_text_too_long_rejected(self, bundled_presets):
+        result = bundled_presets.demo(text="a" * 10001)
+        assert "error" in result
+        assert result["code"] == "text_too_long"
+
+    def test_demo_text_exactly_10000_accepted(self, bundled_presets, monkeypatch):
+        mcp = bundled_presets
+        monkeypatch.setattr(mcp, "list_voices", lambda: {})
+        result = mcp.demo(text="a" * 10000)
+        assert result.get("code") not in ("text_too_long", "text_empty"), result
