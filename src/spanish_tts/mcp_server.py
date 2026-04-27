@@ -22,7 +22,7 @@ from mcp.server.fastmcp import FastMCP
 from spanish_tts.config import get_defaults, get_voice, list_voices
 from spanish_tts.engine import generate
 
-logger = logging.getLogger("spanish-tts-mcp")
+logger = logging.getLogger("spanish_tts.mcp_server")
 
 mcp = FastMCP("spanish-tts")
 
