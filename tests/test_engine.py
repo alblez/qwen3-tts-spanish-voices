@@ -114,20 +114,42 @@ class TestGenerateValidation:
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture(autouse=True)
-def reset_engine_cache():
-    """Reset the engine cache before and after each test in this module."""
-    _clear_cache()
-    yield
-    _clear_cache()
+def _install_fake_load_model(monkeypatch, fake_load_model):
+    """Patch mlx_audio.tts.load_model with *fake_load_model* in sys.modules.
+
+    Works whether mlx_audio is installed (Apple Silicon) or absent (CI).
+    Returns the patched eng module for convenience.
+    """
+    import sys
+    import types
+
+    import spanish_tts.engine as eng
+
+    if "mlx_audio.tts" in sys.modules:
+        monkeypatch.setattr(sys.modules["mlx_audio.tts"], "load_model", fake_load_model)
+    else:
+        fake_mlx = types.ModuleType("mlx_audio")
+        fake_tts = types.ModuleType("mlx_audio.tts")
+        fake_tts.load_model = fake_load_model
+        fake_mlx.tts = fake_tts
+        monkeypatch.setitem(sys.modules, "mlx_audio", fake_mlx)
+        monkeypatch.setitem(sys.modules, "mlx_audio.tts", fake_tts)
+    return eng
 
 
 class TestCacheLock:
+    @pytest.fixture(autouse=True)
+    def reset_cache(self):
+        """Isolate each test by clearing the cache before and after."""
+        _clear_cache()
+        yield
+        _clear_cache()
+
     def test_get_model_called_once_under_concurrency(self, monkeypatch):
         """Concurrent _get_model calls for the same model_id load the model
         exactly once, even under a ThreadPoolExecutor.
         """
-        import spanish_tts.engine as eng
+        import time
 
         load_count = {"n": 0}
 
@@ -136,29 +158,11 @@ class TestCacheLock:
 
         def fake_load_model(model_id):
             load_count["n"] += 1
-            # Simulate some work so threads have time to race.
-            import time
-
+            # sleep releases the GIL, giving other threads a chance to race.
             time.sleep(0.02)
             return FakeModel()
 
-        monkeypatch.setattr(eng, "_model_cache", {})
-        # Patch at the source where _get_model imports it.
-        import sys
-
-        if "mlx_audio.tts" in sys.modules:
-            monkeypatch.setattr(sys.modules["mlx_audio.tts"], "load_model", fake_load_model)
-        else:
-            # mlx_audio not installed (CI) — patch via importlib side-channel.
-            import types
-
-            fake_mlx = types.ModuleType("mlx_audio")
-            fake_tts = types.ModuleType("mlx_audio.tts")
-            fake_tts.load_model = fake_load_model
-            fake_mlx.tts = fake_tts
-            monkeypatch.setitem(sys.modules, "mlx_audio", fake_mlx)
-            monkeypatch.setitem(sys.modules, "mlx_audio.tts", fake_tts)
-
+        eng = _install_fake_load_model(monkeypatch, fake_load_model)
         model_id = MODELS["design"]
         results = []
 
@@ -175,10 +179,31 @@ class TestCacheLock:
         # All threads got the same cached object.
         assert all(r is results[0] for r in results)
 
-    def test_clear_cache_evicts_all(self, monkeypatch):
+    def test_get_model_returns_cached_on_second_call(self, monkeypatch):
+        """Sequential second call returns cached object; load_model not called again."""
+
+        load_count = {"n": 0}
+
+        class FakeModel:
+            sample_rate = 24000
+
+        def fake_load_model(model_id):
+            load_count["n"] += 1
+            return FakeModel()
+
+        eng = _install_fake_load_model(monkeypatch, fake_load_model)
+        model_id = MODELS["design"]
+
+        first = eng._get_model(model_id)
+        second = eng._get_model(model_id)
+        assert load_count["n"] == 1
+        assert first is second
+
+    def test_clear_cache_evicts_all(self):
         """_clear_cache() empties the module-level _model_cache dict."""
         import spanish_tts.engine as eng
 
+        # Mutate the real dict in place (no setattr — keeps _cache_lock consistent).
         with _cache_lock:
             eng._model_cache["fake_id"] = object()
         assert "fake_id" in eng._model_cache
@@ -187,31 +212,36 @@ class TestCacheLock:
 
 
 class TestGenerateLock:
+    @pytest.fixture(autouse=True)
+    def reset_cache(self):
+        """Isolate each test."""
+        _clear_cache()
+        yield
+        _clear_cache()
+
     def test_generate_lock_is_threading_lock(self):
         """_generate_lock must be a real threading.Lock (not a no-op)."""
         assert isinstance(_generate_lock, type(threading.Lock()))
 
-    def test_generate_serialized_under_concurrency(self, monkeypatch, tmp_path):
-        """Concurrent generate_design calls must not overlap — _generate_lock
-        serialises the critical section.  We detect overlap by recording
-        entry/exit timestamps and asserting no two intervals overlap.
-        """
+    def _run_serialization_test(self, monkeypatch, tmp_path, generate_fn, model_key):
+        """Shared helper: assert concurrent calls do not overlap in execution."""
         import time
 
         import spanish_tts.engine as eng
 
         intervals = []
-        lock = threading.Lock()
+        interval_lock = threading.Lock()
 
         class FakeModel:
             sample_rate = 24000
 
             def generate(self, **kwargs):
-                # Tiny sleep simulates generation work.
+                # Record timestamps inside the _generate_lock critical section.
                 start = time.monotonic()
+                # sleep releases GIL so other threads can queue behind the lock.
                 time.sleep(0.05)
                 end = time.monotonic()
-                with lock:
+                with interval_lock:
                     intervals.append((start, end))
 
                 class R:
@@ -219,31 +249,60 @@ class TestGenerateLock:
 
                 yield R()
 
-        monkeypatch.setattr(eng, "_model_cache", {MODELS["design"]: FakeModel()})
+        monkeypatch.setattr(eng, "_model_cache", {MODELS[model_key]: FakeModel()})
 
         errors = []
 
-        def run_generate(i):
+        def run(i):
             out = str(tmp_path / f"out_{i}.wav")
             try:
-                eng.generate_design(
-                    text="hola", instruct="calm voice", output=out, output_dir=str(tmp_path)
-                )
+                generate_fn(eng, out, tmp_path)
             except Exception as e:
                 errors.append(e)
 
         with ThreadPoolExecutor(max_workers=3) as pool:
-            futures = [pool.submit(run_generate, i) for i in range(3)]
+            futures = [pool.submit(run, i) for i in range(3)]
             for f in futures:
                 f.result()
 
-        assert not errors, f"generate_design raised: {errors}"
+        assert not errors, f"generate_fn raised: {errors}"
         # Verify no two intervals overlap (serialized execution).
+        # 1ms tolerance accounts for monotonic clock resolution on Linux (~1ms).
         sorted_ivs = sorted(intervals)
         for i in range(1, len(sorted_ivs)):
             prev_end = sorted_ivs[i - 1][1]
             cur_start = sorted_ivs[i][0]
             assert cur_start >= prev_end - 1e-3, (
-                f"Overlap detected: interval {i - 1} ends {prev_end:.4f}, "
-                f"interval {i} starts {cur_start:.4f}"
+                f"Overlap detected at position {i}: interval {i - 1} ends "
+                f"{prev_end:.4f}s, interval {i} starts {cur_start:.4f}s"
             )
+
+    def test_generate_design_serialized_under_concurrency(self, monkeypatch, tmp_path):
+        """Concurrent generate_design calls must not overlap."""
+
+        def fn(eng, out, tmp_path):
+            eng.generate_design(
+                text="hola", instruct="calm voice", output=out, output_dir=str(tmp_path)
+            )
+
+        self._run_serialization_test(monkeypatch, tmp_path, fn, "design")
+
+    def test_generate_clone_serialized_under_concurrency(self, monkeypatch, tmp_path):
+        """Concurrent generate_clone calls must not overlap."""
+        import numpy as np
+        import soundfile as sf
+
+        # Create a minimal ref audio file for generate_clone.
+        ref = str(tmp_path / "ref.wav")
+        sf.write(ref, np.zeros(4096, dtype=np.float32), 24000)
+
+        def fn(eng, out, tmp_path):
+            eng.generate_clone(
+                text="hola",
+                ref_audio=ref,
+                ref_text="hola",
+                output=out,
+                output_dir=str(tmp_path),
+            )
+
+        self._run_serialization_test(monkeypatch, tmp_path, fn, "clone")
