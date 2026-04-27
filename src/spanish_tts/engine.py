@@ -221,6 +221,9 @@ def generate_clone(
 
         sample_rate = model.sample_rate
         audio_np = _apply_speed(audio_np, speed, sample_rate)
+        # NOTE: _apply_speed (librosa time_stretch) is CPU-bound and may take
+        # several seconds at non-trivial speeds.  Move outside _generate_lock
+        # if the transport ever moves beyond single-request stdio-MCP.
         sf.write(output_path, audio_np, sample_rate)
 
     duration = len(audio_np) / sample_rate
@@ -292,6 +295,9 @@ def generate_design(
 
         sample_rate = model.sample_rate
         audio_np = _apply_speed(audio_np, speed, sample_rate)
+        # NOTE: _apply_speed (librosa time_stretch) is CPU-bound and may take
+        # several seconds at non-trivial speeds.  Move outside _generate_lock
+        # if the transport ever moves beyond single-request stdio-MCP.
         sf.write(output_path, audio_np, sample_rate)
 
     duration = len(audio_np) / sample_rate
