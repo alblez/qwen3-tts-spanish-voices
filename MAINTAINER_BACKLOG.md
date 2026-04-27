@@ -10,9 +10,13 @@ Scope of review: `src/spanish_tts/{mcp_server,engine,config,cli}.py`,
 
 ---
 
-> **Status (v0.2.0, 2026-04-26):** M1, M2, M3, M6 delivered in PR #1
-> (merged commit `cebf301`). M4, M5, M7, M8 remain open. See CHANGELOG.md
-> for the shipped set.
+> **Status (v0.2.0+, 2026-04-26):** M1, M2, M3, M6 delivered in PR #1
+> (merged commit `cebf301`). M7 merged in #3, M4 in #10, M5 in #13.
+> M8 declined as won't-fix after Hermes-skill architecture review
+> (see the M8 section below). All backlog items disposed. See
+> CHANGELOG.md for the shipped set and umbrella #2 comment
+> <https://github.com/alblez/qwen3-tts-spanish-voices/issues/2#issuecomment-4323854358>
+> for the M8 rationale.
 
 ## Cross-reference
 
@@ -192,9 +196,9 @@ it back when the feature is actually implemented.
 
 ---
 
-## M8 — No MCP prompts or resources (ENHANCEMENT)
+## M8 — No MCP prompts or resources (WON'T-FIX, ARCHITECTURE REVIEW)
 
-Server registers tools only. Low-hanging fruit:
+Originally scoped as enhancement:
 
   - **Prompt** `narrate_story`: takes text + voice, emits a framed
     user+assistant template that encourages good prosody.
@@ -203,7 +207,39 @@ Server registers tools only. Low-hanging fruit:
     generate a short preview on first read, cache on disk.
   - **Resource** `spanish-tts://readme`: mirror README.md.
 
-Not urgent; good first issue material.
+**Declined** after Hermes-skill architecture review. Primary consumer
+is the [qwen3-tts Hermes skill](https://github.com/alblez/hermes-skills/tree/main/skills/qwen3-tts)
+(v1.6.0), which already owns routing via SKILL.md (voice defaults,
+ffmpeg chaining, streaming guidance, Telegram Opus pipeline). Shipping
+M8 would:
+
+  1. Duplicate skill content (`narrate_story` ≈ what SKILL.md already
+     tells the agent; `spanish-tts://readme` ≈ the SKILL.md already
+     loaded into Hermes's cached system prompt at layer 7).
+  2. Add 4 utility-wrapper tool schemas to every Hermes session
+     (`mcp_spanish-tts_list_prompts`, `mcp_spanish-tts_get_prompt`,
+     `mcp_spanish-tts_list_resources`, `mcp_spanish-tts_read_resource`)
+     per Hermes's capability-aware MCP discovery. Token cost in the
+     cached system prompt with no organic use path — agent takes the
+     1-tool-call `say` path the skill taught it, not the 3-call
+     `list_prompts → get_prompt → say` detour.
+  3. `compare_voices` is a subset of the existing `demo` tool; if
+     2-voice A/B becomes a real use case, extend `demo` with a
+     `voices: list[str]` parameter instead.
+
+The only element with marginal non-Hermes value is the `preview.wav`
+resource (useful for Claude Desktop or raw MCP inspector UIs that
+render `audio/wav` natively). Not worth the disk-cache + mtime
+invalidation + cleanup code path without a demand signal from
+non-skill clients.
+
+**Re-open conditions:** evidence of non-skill MCP-client demand (GitHub
+issue, PR, Discord thread). Scope on re-open = `preview.wav` resource
+only, gated behind `tools.resources` per-server config so Hermes users
+can suppress the wrapper.
+
+See umbrella comment:
+<https://github.com/alblez/qwen3-tts-spanish-voices/issues/2#issuecomment-4323854358>
 
 ---
 
