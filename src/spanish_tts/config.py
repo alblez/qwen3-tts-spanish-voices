@@ -102,15 +102,20 @@ def _validate_voices_schema(data: dict[str, Any], source: Path) -> None:
 def load_voices(voices_file: Path | None = None) -> dict[str, Any]:
     """Load voice registry from YAML.
 
-    Falls back to the bundled presets if the user voices file is corrupt
-    (logs the error; does **not** overwrite the corrupt file — the user
-    must recover it manually or delete it to reset to presets).
+    Falls back to the bundled presets if the user voices file is corrupt or
+    schema-invalid (logs the error; does **not** overwrite the corrupt file —
+    the user must recover it manually or delete it to reset to presets).
 
     Returns:
-        Parsed voice registry dict.  Always a non-None mapping.
+        Parsed voice registry dict.  Always a non-None mapping.  When the user
+        file is schema-invalid, the bundled presets are returned instead of the
+        user data; the return value does not distinguish this substitution — check
+        logs if you need to detect the fallback.
 
     Raises:
         ValueError: If the loaded data is not a YAML mapping (dict).
+        ValueError: If the bundled presets themselves fail schema validation
+            (indicates a corrupt install; no fallback is possible).
     """
     if voices_file is None:
         user_voices = get_config_dir() / VOICES_FILENAME
@@ -166,8 +171,13 @@ def save_voices(data: dict[str, Any], voices_file: Path | None = None) -> None:
     behind but the original intact.
 
     Args:
-        data: Voice registry dict to serialise.
+        data: Voice registry dict to serialise.  Must pass
+            :func:`_validate_voices_schema` — invalid entries raise
+            ``ValueError`` before any file I/O occurs.
         voices_file: Destination path; defaults to user config.
+
+    Raises:
+        ValueError: If *data* contains schema-invalid voice entries.
     """
     if voices_file is None:
         voices_file = get_config_dir() / VOICES_FILENAME
@@ -205,12 +215,18 @@ def add_voice(
 
     Args:
         name: Voice key.
-        voice_data: Voice payload (must include ``type``).
+        voice_data: Voice payload (must include a valid ``type`` and satisfy
+            :func:`_validate_voices_schema`).  Invalid entries raise
+            ``ValueError`` via :func:`save_voices` before any write occurs.
         voices_file: Registry path; defaults to user config.
         allow_overwrite: If False, raise ``ValueError`` instead of
             overwriting an existing entry. Default True to preserve
             existing callers (`scripts/curate.py` intentionally
             replaces entries when re-exporting a clone).
+
+    Raises:
+        ValueError: If *name* already exists and *allow_overwrite* is False.
+        ValueError: If *voice_data* contains schema-invalid entries.
     """
     data = load_voices(voices_file)
     if "voices" not in data:

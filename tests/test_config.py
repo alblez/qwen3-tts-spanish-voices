@@ -261,6 +261,14 @@ class TestLoadVoicesResilience:
         assert isinstance(data.get("voices"), dict)
         assert "neutral_male" in data["voices"]
 
+    def test_schema_invalid_load_does_not_overwrite_user_file(self, tmp_path):
+        """Schema-invalid user file is NOT modified by load_voices — user must recover manually."""
+        bad = tmp_path / VOICES_FILENAME
+        original_content = "voices:\n  bad_voice:\n    type: bogus\n    instruct: x\n"
+        bad.write_text(original_content, encoding="utf-8")
+        load_voices(bad)  # should not raise, should not overwrite
+        assert bad.read_text(encoding="utf-8") == original_content
+
 
 class TestSaveVoicesAtomic:
     def test_atomic_write_succeeds(self, tmp_path):
@@ -308,7 +316,8 @@ class TestSaveVoicesSchemaValidation:
             save_voices(invalid_data, vf)
         # No tmp file should have been written.
         assert not vf.with_suffix(".yaml.tmp").exists()
-        # Target file should not exist either.
+        # Validation fires before any I/O; target file was never created either.
+        # (This is vacuously true for a fresh tmp_path but documents intent.)
         assert not vf.exists()
 
 
