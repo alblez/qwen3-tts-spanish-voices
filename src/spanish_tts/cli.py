@@ -42,7 +42,7 @@ def say(text, voice, speed, output, play):
         click.echo(f"Available: {', '.join(available)}", err=True)
         raise SystemExit(1)
 
-    effective_speed = speed or defaults.get("speed", 1.0)
+    effective_speed = speed if speed is not None else defaults.get("speed", 1.0)
     output_dir = defaults.get("output_dir", "~/tts-output/spanish")
 
     result = generate(

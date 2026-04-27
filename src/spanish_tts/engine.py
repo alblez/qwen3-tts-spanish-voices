@@ -42,6 +42,33 @@ class TtsResult:
 # Speed range constants
 SPEED_MIN, SPEED_MAX = 0.5, 2.0
 
+_MAX_TEXT_LEN = 10_000
+
+
+def _validate_text(text: str, max_len: int | None = _MAX_TEXT_LEN) -> str:
+    """Validate text before synthesis.  Returns *text* unchanged on success.
+
+    Args:
+        text: Text to validate.
+        max_len: Maximum allowed character count (default 10 000).  Pass
+            ``None`` to skip the length check.
+
+    Returns:
+        The *text* argument unchanged (convenience for inline use).
+
+    Raises:
+        ValueError: If the text is empty/whitespace-only, contains a NUL
+            byte, or exceeds *max_len* characters.
+    """
+    if text is None or not text.strip():
+        raise ValueError("text is empty")
+    if "\x00" in text:
+        raise ValueError("text contains NUL byte")
+    if max_len is not None and len(text) > max_len:
+        raise ValueError(f"text too long ({len(text)} chars, max {max_len})")
+    return text
+
+
 # Default MLX models
 MODELS = {
     "clone": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit",
@@ -225,6 +252,7 @@ def generate_clone(
         exact duration.  ``str(result)`` returns ``result.path`` for
         backward-compatible callers.
     """
+    _validate_text(text)
     ref_path = Path(ref_audio).expanduser()
     if not ref_path.exists():
         raise FileNotFoundError(f"Reference audio not found: {ref_path}")
@@ -291,6 +319,7 @@ def generate_design(
         exact duration.  ``str(result)`` returns ``result.path`` for
         backward-compatible callers.
     """
+    _validate_text(text)
     lang_map = {
         "Spanish": "spanish",
         "English": "english",

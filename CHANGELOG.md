@@ -11,6 +11,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- `_validate_text` helper in `engine.py` — rejects empty/NUL/too-long text with `ValueError`. Called from `generate_clone` and `generate_design` (U3-17).
 - `TtsResult` dataclass in `engine.py` — frozen, `path: str`, `duration_seconds: float`, `__str__` returns path for backward-compat (U3-19).
 - `TtsResult` exported from `spanish_tts.__init__` (U3-19).
 - `CONTRACT.md` — stable JSON shapes + backward-compat policy for the MCP server (U3-5 part 1).
@@ -27,6 +28,9 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 - `generate_clone`, `generate_design`, `generate` now return `TtsResult` instead of `str`. `str(result)` still returns the path — string-coercion callers unaffected; equality comparisons against plain path strings break (use `result.path`) (U3-19).
 - MCP `say` `duration_seconds` field now always a float (engine-computed). The `sf.info` re-read and its bare-except dead branch are removed (U3-19).
+- MCP `say`/`demo` error responses now include a stable `code` field alongside `error`. Stable enum documented in `CONTRACT.md` (U3-17, ECO-016).
+- MCP `say` rejects NUL bytes in `text` (`text_nul` code) and adds `math.isfinite` guard on speed before the range check (`speed_not_finite` code) (U3-17).
+- CLI `say` speed fallback: `speed or defaults.get(...)` replaced by `speed if speed is not None else ...` — prevents `speed=0.0` falling through (U3-17).
 - `pyproject.toml` version bumped to `0.3.0` (breaking engine public API).
 - `CONTRACT.md` updated: `duration_seconds` documented as always-present finite float.
 - `load_voices` now falls back to bundled presets (with a logged error) when the user's `voices.yaml` contains schema-invalid entries, in addition to the existing `YAMLError` fallback. The user's corrupt file is NOT overwritten.
