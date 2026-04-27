@@ -16,9 +16,7 @@ import json
 import sys
 
 import pytest
-
 from mcp.server.fastmcp.exceptions import ToolError
-
 
 # ---------------------------------------------------------------------------
 # Fixture: reload mcp_server against bundled presets (no user voices.yaml)
@@ -66,7 +64,10 @@ class TestToolInventory:
     def test_say_tool_description_present(self, mcp_module):
         tools = {t.name: t for t in _list_tools(mcp_module)}
         assert tools["say"].description
-        assert "speech" in tools["say"].description.lower() or "text" in tools["say"].description.lower()
+        assert (
+            "speech" in tools["say"].description.lower()
+            or "text" in tools["say"].description.lower()
+        )
 
     def test_list_all_voices_description_present(self, mcp_module):
         tools = {t.name: t for t in _list_tools(mcp_module)}
@@ -106,9 +107,7 @@ class TestSayInputSchema:
         assert "speed" not in schema.get("required", [])
         # anyOf nullable number
         speed_schema = schema["properties"]["speed"]
-        types_in_schema = [
-            s.get("type") for s in speed_schema.get("anyOf", [speed_schema])
-        ]
+        types_in_schema = [s.get("type") for s in speed_schema.get("anyOf", [speed_schema])]
         assert "number" in types_in_schema or speed_schema.get("type") == "number"
 
     def test_say_stream_optional_boolean(self, mcp_module):
@@ -143,8 +142,8 @@ class TestSayRejection:
 class TestSaySuccessShape:
     def test_say_returns_path_and_duration(self, mcp_module, monkeypatch, tmp_path):
         """CONTRACT: success response has 'path' (str) and 'duration_seconds'."""
-        import soundfile as sf
         import numpy as np
+        import soundfile as sf
 
         out = str(tmp_path / "out.wav")
         sf.write(out, np.zeros(4800, dtype=np.float32), 24000)
@@ -253,8 +252,8 @@ class TestDemoShape:
 
     def test_demo_success_has_results_list(self, mcp_module, monkeypatch, tmp_path):
         """CONTRACT: success response has 'results' list."""
-        import soundfile as sf
         import numpy as np
+        import soundfile as sf
 
         call_count = {"n": 0}
 
@@ -272,8 +271,8 @@ class TestDemoShape:
 
     def test_demo_each_result_has_status(self, mcp_module, monkeypatch, tmp_path):
         """CONTRACT: each result entry has 'voice', 'status', and either 'path' or 'error'."""
-        import soundfile as sf
         import numpy as np
+        import soundfile as sf
 
         def fake_generate(**kw):
             out = str(tmp_path / "out.wav")
@@ -293,8 +292,8 @@ class TestDemoShape:
 
     def test_demo_partial_failure_continues(self, mcp_module, monkeypatch, tmp_path):
         """CONTRACT: one voice failure does not abort the whole demo."""
-        import soundfile as sf
         import numpy as np
+        import soundfile as sf
 
         voices = mcp_module.list_voices()
         voice_names = list(voices.keys())
