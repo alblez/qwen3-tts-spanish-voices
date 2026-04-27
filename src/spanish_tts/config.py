@@ -2,21 +2,54 @@
 
 import logging
 import os
+import tempfile
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-logger = logging.getLogger("spanish-tts.config")
+logger = logging.getLogger("spanish_tts.config")
 
 VOICES_FILENAME = "voices.yaml"
 DEFAULT_CONFIG_DIR = Path.home() / ".spanish-tts"
 DEFAULT_VOICES_FILE = Path(__file__).parent.parent.parent / "presets" / VOICES_FILENAME
 
+# Valid voice types for schema validation.
+_VALID_VOICE_TYPES = {"clone", "design"}
+
 
 def get_config_dir() -> Path:
-    """Get or create config directory."""
-    config_dir = Path(os.environ.get("SPANISH_TTS_CONFIG", DEFAULT_CONFIG_DIR))
+    """Get or create config directory.
+
+    Validates that the resolved path is under the user's home directory (or a
+    known-safe temporary directory) when the SPANISH_TTS_CONFIG environment
+    variable is set, to prevent accidental writes to system directories.
+
+    Raises:
+        ValueError: If SPANISH_TTS_CONFIG resolves outside $HOME and outside
+            the system temp directory.
+    """
+    raw = os.environ.get("SPANISH_TTS_CONFIG")
+    if raw is not None:
+        config_dir = Path(raw).expanduser().resolve()
+        home = Path.home().resolve()
+        # Also allow the system temp dir (e.g. pytest tmp_path on macOS resolves
+        # to /private/var/folders/… which is outside $HOME).
+        tmpdir = Path(tempfile.gettempdir()).resolve()
+
+        def _under(parent: Path) -> bool:
+            try:
+                config_dir.relative_to(parent)
+                return True
+            except ValueError:
+                return False
+
+        if not (_under(home) or _under(tmpdir)):
+            raise ValueError(
+                f"SPANISH_TTS_CONFIG must resolve under $HOME ({home}), got: {config_dir}"
+            )
+    else:
+        config_dir = DEFAULT_CONFIG_DIR
     config_dir.mkdir(parents=True, exist_ok=True)
     return config_dir
 
@@ -28,30 +61,102 @@ def get_references_dir() -> Path:
     return ref_dir
 
 
+def _validate_voices_schema(data: dict[str, Any], source: Path) -> None:
+    """Raise ValueError if *data* does not satisfy the minimal voices schema.
+
+    Checks:
+    - ``data["voices"]`` is a mapping.
+    - Each entry has ``type`` in ``{"clone", "design"}``.
+    - Clone entries have ``ref_audio`` as a non-empty string.
+    """
+    voices = data.get("voices", {})
+    if not isinstance(voices, dict):
+        raise ValueError(
+            f"voices.yaml 'voices' key must be a mapping, got {type(voices).__name__} in {source}"
+        )
+    for name, entry in voices.items():
+        if not isinstance(entry, dict):
+            raise ValueError(
+                f"Voice entry {name!r} must be a mapping, got {type(entry).__name__} in {source}"
+            )
+        vtype = entry.get("type")
+        if vtype not in _VALID_VOICE_TYPES:
+            raise ValueError(
+                f"Voice {name!r} has invalid type {vtype!r}; "
+                f"must be one of {sorted(_VALID_VOICE_TYPES)} in {source}"
+            )
+        if vtype == "clone":
+            ref = entry.get("ref_audio")
+            if not isinstance(ref, str) or not ref:
+                raise ValueError(
+                    f"Clone voice {name!r} must have a non-empty string 'ref_audio' in {source}"
+                )
+
+
 def load_voices(voices_file: Path | None = None) -> dict[str, Any]:
-    """Load voice registry from YAML."""
+    """Load voice registry from YAML.
+
+    Falls back to the bundled presets if the user voices file is corrupt
+    (logs the error; does **not** overwrite the corrupt file — the user
+    must recover it manually or delete it to reset to presets).
+
+    Returns:
+        Parsed voice registry dict.  Always a non-None mapping.
+
+    Raises:
+        ValueError: If the loaded data is not a YAML mapping (dict).
+    """
     if voices_file is None:
-        # Check user config first, fall back to bundled presets
         user_voices = get_config_dir() / VOICES_FILENAME
         if user_voices.exists():
             voices_file = user_voices
         else:
             voices_file = DEFAULT_VOICES_FILE
 
-    with open(voices_file) as f:
-        data = yaml.safe_load(f)
+    try:
+        raw = voices_file.read_text(encoding="utf-8")
+        data = yaml.safe_load(raw)
+    except yaml.YAMLError as exc:
+        logger.error(
+            "Corrupt voices.yaml at %s: %s; falling back to bundled presets. "
+            "Fix or delete the file to restore normal operation.",
+            voices_file,
+            exc,
+        )
+        data = yaml.safe_load(DEFAULT_VOICES_FILE.read_text(encoding="utf-8"))
+
+    # safe_load returns None for an empty file; normalise to empty dict.
+    if data is None:
+        data = {}
+
+    if not isinstance(data, dict):
+        raise ValueError(
+            f"voices.yaml must be a YAML mapping (dict), got {type(data).__name__} in {voices_file}"
+        )
 
     return data
 
 
-def save_voices(data: dict[str, Any], voices_file: Path | None = None):
-    """Save voice registry to YAML."""
+def save_voices(data: dict[str, Any], voices_file: Path | None = None) -> None:
+    """Save voice registry to YAML atomically.
+
+    Writes to a ``.yaml.tmp`` sibling first, then renames atomically via
+    ``os.replace``.  On POSIX this is guaranteed atomic within the same
+    filesystem; a crash between the write and the rename leaves the tmp file
+    behind but the original intact.
+
+    Args:
+        data: Voice registry dict to serialise.
+        voices_file: Destination path; defaults to user config.
+    """
     if voices_file is None:
         voices_file = get_config_dir() / VOICES_FILENAME
 
     voices_file.parent.mkdir(parents=True, exist_ok=True)
-    with open(voices_file, "w") as f:
-        yaml.dump(data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+    tmp = voices_file.with_suffix(".yaml.tmp")
+    with open(tmp, "w", encoding="utf-8") as fh:
+        yaml.dump(data, fh, default_flow_style=False, allow_unicode=True, sort_keys=False)
+    os.replace(tmp, voices_file)
 
 
 def get_voice(name: str, voices_file: Path | None = None) -> dict[str, Any] | None:

@@ -1,12 +1,15 @@
 """Tests for spanish_tts.config module."""
 
 import logging
+import os
+from pathlib import Path
 
 import pytest
 import yaml
 
 from spanish_tts.config import (
     VOICES_FILENAME,
+    _validate_voices_schema,
     add_voice,
     get_defaults,
     get_voice,
@@ -192,3 +195,138 @@ class TestGetDefaults:
         save_voices({"voices": {}}, voices_file)
         defaults = get_defaults(voices_file)
         assert "language" in defaults
+
+
+# ---------------------------------------------------------------------------
+# U3-3: YAML resilience — load_voices, save_voices, schema, env guard
+# ---------------------------------------------------------------------------
+
+
+class TestLoadVoicesResilience:
+    def test_corrupt_yaml_falls_back_to_presets(self, tmp_path, caplog):
+        """Corrupt YAML logs error and returns bundled presets instead."""
+        bad = tmp_path / VOICES_FILENAME
+        bad.write_text("{invalid yaml: [}", encoding="utf-8")
+        with caplog.at_level(logging.ERROR, logger="spanish_tts.config"):
+            data = load_voices(bad)
+        assert "Corrupt" in caplog.text or "corrupt" in caplog.text.lower()
+        # Bundled presets have at least one voice
+        assert isinstance(data.get("voices"), dict)
+        assert len(data["voices"]) > 0
+
+    def test_empty_yaml_returns_empty_dict(self, tmp_path):
+        """Empty YAML file (safe_load → None) is normalised to {}."""
+        empty = tmp_path / VOICES_FILENAME
+        empty.write_text("", encoding="utf-8")
+        data = load_voices(empty)
+        assert data == {}
+
+    def test_non_dict_yaml_raises(self, tmp_path):
+        """A YAML list at the top level raises ValueError."""
+        bad = tmp_path / VOICES_FILENAME
+        bad.write_text("- item1\n- item2\n", encoding="utf-8")
+        with pytest.raises(ValueError, match="mapping"):
+            load_voices(bad)
+
+    def test_corrupt_file_not_overwritten(self, tmp_path):
+        """Corrupt user file is NOT modified by load_voices — user must recover manually."""
+        bad = tmp_path / VOICES_FILENAME
+        original_content = "{invalid yaml: ["
+        bad.write_text(original_content, encoding="utf-8")
+        load_voices(bad)  # should not raise, should not overwrite
+        assert bad.read_text(encoding="utf-8") == original_content
+
+
+class TestSaveVoicesAtomic:
+    def test_atomic_write_succeeds(self, tmp_path):
+        """Normal save produces the target file, no tmp left behind."""
+        vf = tmp_path / VOICES_FILENAME
+        data = {"voices": {"v1": {"type": "design", "instruct": "test"}}}
+        save_voices(data, vf)
+        assert vf.exists()
+        assert not vf.with_suffix(".yaml.tmp").exists()
+
+    def test_tmp_file_absent_after_success(self, tmp_path):
+        """The .yaml.tmp sibling is cleaned up (renamed) after successful save."""
+        vf = tmp_path / VOICES_FILENAME
+        save_voices({"voices": {}}, vf)
+        assert not list(tmp_path.glob("*.tmp"))
+
+    def test_atomic_failure_leaves_original_intact(self, tmp_path, monkeypatch):
+        """If os.replace raises, the original file is NOT corrupted."""
+        vf = tmp_path / VOICES_FILENAME
+        original_data = {"voices": {"original": {"type": "design", "instruct": "keep me"}}}
+        save_voices(original_data, vf)
+
+        def boom(src, dst):
+            raise OSError("simulated disk-full")
+
+        monkeypatch.setattr(os, "replace", boom)
+        with pytest.raises(OSError, match="simulated disk-full"):
+            save_voices({"voices": {"corrupted": {}}}, vf)
+
+        # Original file unchanged
+        reloaded = load_voices(vf)
+        assert "original" in reloaded["voices"]
+
+
+class TestVoicesSchemaValidation:
+    def test_valid_schema_passes(self):
+        data = {
+            "voices": {
+                "v1": {"type": "design", "instruct": "x"},
+                "v2": {"type": "clone", "ref_audio": "/tmp/a.wav"},
+            }
+        }
+        _validate_voices_schema(data, Path("test.yaml"))  # should not raise
+
+    def test_voices_not_dict_raises(self):
+        data = {"voices": ["not", "a", "dict"]}
+        with pytest.raises(ValueError, match="mapping"):
+            _validate_voices_schema(data, Path("test.yaml"))
+
+    def test_invalid_type_raises(self):
+        data = {"voices": {"bad": {"type": "unsupported"}}}
+        with pytest.raises(ValueError, match="invalid type"):
+            _validate_voices_schema(data, Path("test.yaml"))
+
+    def test_clone_missing_ref_audio_raises(self):
+        data = {"voices": {"v1": {"type": "clone"}}}
+        with pytest.raises(ValueError, match="ref_audio"):
+            _validate_voices_schema(data, Path("test.yaml"))
+
+    def test_clone_empty_ref_audio_raises(self):
+        data = {"voices": {"v1": {"type": "clone", "ref_audio": ""}}}
+        with pytest.raises(ValueError, match="ref_audio"):
+            _validate_voices_schema(data, Path("test.yaml"))
+
+    def test_non_dict_entry_raises(self):
+        data = {"voices": {"v1": "not_a_dict"}}
+        with pytest.raises(ValueError, match="mapping"):
+            _validate_voices_schema(data, Path("test.yaml"))
+
+
+class TestConfigDirEnvGuard:
+    def test_env_var_under_home_accepted(self, tmp_path, monkeypatch):
+        """SPANISH_TTS_CONFIG under $HOME is accepted."""
+        safe = Path.home() / ".spanish-tts-test-tmp"
+        monkeypatch.setenv("SPANISH_TTS_CONFIG", str(safe))
+        from spanish_tts.config import get_config_dir
+
+        d = get_config_dir()
+        assert d == safe
+        # Cleanup
+        if safe.exists():
+            safe.rmdir()
+
+    def test_env_var_outside_home_rejected(self, monkeypatch):
+        """SPANISH_TTS_CONFIG outside $HOME raises ValueError."""
+        monkeypatch.setenv("SPANISH_TTS_CONFIG", "/etc/spanish-tts-evil")
+        # Reimport to bypass any cached state
+        import importlib
+
+        from spanish_tts import config as cfg_mod
+
+        importlib.reload(cfg_mod)
+        with pytest.raises(ValueError, match="HOME"):
+            cfg_mod.get_config_dir()
