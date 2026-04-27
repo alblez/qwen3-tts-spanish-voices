@@ -1,5 +1,7 @@
 """Tests for spanish_tts.config module."""
 
+import logging
+
 import pytest
 import yaml
 
@@ -109,8 +111,6 @@ class TestAddVoice:
 
     def test_overwrite_same_type_emits_warning(self, tmp_voices_file, caplog):
         """Overwriting a voice with the same type emits a WARNING."""
-        import logging
-
         with caplog.at_level(logging.WARNING, logger="spanish-tts.config"):
             add_voice(
                 "test_clone",
@@ -122,11 +122,13 @@ class TestAddVoice:
         assert rec.levelno == logging.WARNING
         assert "test_clone" in rec.message
         assert "overwritten" in rec.message.lower()
+        assert "CHANGES" not in rec.message  # must not route through the type-change branch
+        # Verify the overwrite actually persisted
+        updated = get_voice("test_clone", tmp_voices_file)
+        assert updated["ref_audio"] == "/tmp/new.wav"
 
     def test_overwrite_type_change_emits_loud_warning(self, tmp_voices_file, caplog):
         """Overwriting a voice with a different type emits a WARNING flagging the type change."""
-        import logging
-
         with caplog.at_level(logging.WARNING, logger="spanish-tts.config"):
             add_voice(
                 "test_design",
@@ -161,6 +163,22 @@ class TestAddVoice:
         voice = get_voice("brand_new", tmp_voices_file)
         assert voice is not None
         assert voice["instruct"] == "novel"
+
+    def test_allow_overwrite_false_type_change_also_raises(self, tmp_voices_file):
+        """allow_overwrite=False raises ValueError even when types differ."""
+        with pytest.raises(ValueError, match="test_design"):
+            add_voice(
+                "test_design",
+                {"type": "clone", "ref_audio": "/tmp/new.wav"},
+                tmp_voices_file,
+                allow_overwrite=False,
+            )
+
+    def test_add_new_voice_emits_no_warning(self, tmp_voices_file, caplog):
+        """Adding a brand-new voice emits no warnings."""
+        with caplog.at_level(logging.WARNING, logger="spanish-tts.config"):
+            add_voice("brand_new_2", {"type": "design", "instruct": "x"}, tmp_voices_file)
+        assert len(caplog.records) == 0
 
 
 class TestGetDefaults:

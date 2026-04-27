@@ -73,8 +73,9 @@ def add_voice(
     overwriting. If the existing entry has a different ``type`` than the
     new one (typically ``design`` being shadowed by ``clone``, which is
     the real collision `scripts/curate.py` produces against bundled
-    presets like ``neutral_female`` and ``warm_female``), log at a
-    louder level so the caller cannot miss the shadowing.
+    presets like ``neutral_female`` and ``warm_female``), log a more
+    prominent warning message so the caller cannot miss the shadowing.
+    Both cases emit at the same WARNING level.
 
     Args:
         name: Voice key.
@@ -91,6 +92,11 @@ def add_voice(
 
     existing = data["voices"].get(name)
     if existing is not None:
+        if not allow_overwrite:
+            raise ValueError(
+                f"Voice {name!r} already exists. "
+                f"Pass allow_overwrite=True to overwrite it, or choose a different name."
+            )
         existing_type = existing.get("type", "unknown")
         new_type = voice_data.get("type", "unknown")
         if existing_type != new_type:
@@ -98,22 +104,21 @@ def add_voice(
                 "Voice %r is being OVERWRITTEN and its type CHANGES "
                 "(%s -> %s). This shadows the previous registration. "
                 "If %r is a bundled preset, consider registering your "
-                "custom voice under a distinct name (e.g. "
-                "%r) to avoid colliding with it.",
+                "custom voice under a distinct name with a regional suffix "
+                "(e.g. %r) to avoid colliding with it.",
                 name,
                 existing_type,
                 new_type,
                 name,
-                f"{name}_{new_type}",
+                f"{name}_es",
             )
         else:
             logger.warning(
-                "Voice %r already exists and is being overwritten (same type: %s).",
+                "Voice %r already exists and is being overwritten (same type: %s). "
+                "To keep both, register your voice under a distinct name.",
                 name,
                 existing_type,
             )
-        if not allow_overwrite:
-            raise ValueError(f"Voice {name!r} already exists and allow_overwrite=False")
 
     data["voices"][name] = voice_data
     save_voices(data, voices_file)

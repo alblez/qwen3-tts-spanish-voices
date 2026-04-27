@@ -145,6 +145,9 @@ scripts/curate.py export --voice warm_female_mx ...
 The bundled preset remains available under its original name; your clone lives under
 the suffixed name.
 
+If you want an error instead of a warning when a collision occurs, pass
+`allow_overwrite=False` to `add_voice()` — it raises a `ValueError` immediately.
+
 ## Architecture
 
 ```text
