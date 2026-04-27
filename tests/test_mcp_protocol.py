@@ -295,8 +295,7 @@ class TestDemoShape:
         import numpy as np
         import soundfile as sf
 
-        voices = mcp_module.list_voices()
-        voice_names = list(voices.keys())
+        voice_names = list(mcp_module.list_voices().keys())
         assert len(voice_names) >= 2, "Need at least 2 voices for partial-failure test"
 
         first_voice = voice_names[0]
@@ -304,7 +303,10 @@ class TestDemoShape:
 
         def fake_generate(**kw):
             call_count["n"] += 1
-            if kw.get("voice_config") is voices.get(first_voice):
+            # Dispatch on output path suffix — identity check on voice_config dicts
+            # would fail because list_voices() creates new objects on each call.
+            name = kw["output"].split("/")[-1].replace(".wav", "")
+            if name == first_voice:
                 raise RuntimeError("simulated first-voice failure")
             out = str(tmp_path / f"out_{call_count['n']}.wav")
             sf.write(out, np.zeros(2400, dtype=np.float32), 24000)
@@ -314,5 +316,6 @@ class TestDemoShape:
         result = _call(mcp_module, "demo", {"text": "hola", "output_dir": str(tmp_path)})
         assert "results" in result
         statuses = {r["voice"]: r["status"] for r in result["results"]}
-        # At least one should succeed (the non-first voices)
+        # The first voice must have failed; at least one other must have succeeded.
+        assert statuses.get(first_voice) == "failed", f"Expected {first_voice!r} to fail"
         assert "ok" in statuses.values(), "Expected at least one ok result"
