@@ -11,6 +11,24 @@ requires-python = ">=3.11"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Alberto González Rouillé" }]
+keywords = ["tts", "spanish", "qwen3", "mlx", "apple-silicon", "voice-cloning", "mcp"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+    "Topic :: Multimedia :: Sound/Audio :: Sound Synthesis",
+]
+
+[project.urls]
+Homepage = "https://github.com/alblez/qwen3-tts-spanish-voices"
+Source = "https://github.com/alblez/qwen3-tts-spanish-voices"
+Issues = "https://github.com/alblez/qwen3-tts-spanish-voices/issues"
+Changelog = "https://github.com/alblez/qwen3-tts-spanish-voices/blob/main/CHANGELOG.md"
 
 dependencies = [
     "click>=8.0",
@@ -54,6 +72,7 @@ where = ["src"]
 # require heavy extras (mlx, large model downloads, or long audio synthesis).
 markers = [
     "slow: heavy tests that need the [mlx] extra or long synthesis runs (skipped in CI and pre-push pytest)",
+    "requires_mlx: tests that need Apple Silicon + the [mlx] extra (skipped in CI ubuntu leg)",
 ]
 
 [tool.ruff]
