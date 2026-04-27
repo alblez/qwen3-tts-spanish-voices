@@ -161,7 +161,7 @@ def say(
             on_chunk=_on_chunk if stream else None,
         )
     except Exception as e:
-        logger.error("generate() failed: %s", e, exc_info=True)
+        logger.error("generate() failed: %s", e, exc_info=logger.isEnabledFor(logging.DEBUG))
         return {"error": f"Generation failed: {e}", "code": "generation_failed"}
 
     return {"path": result.path, "duration_seconds": round(result.duration_seconds, 2)}
@@ -238,7 +238,12 @@ def demo(text: str, output_dir: str = "/tmp/spanish-tts-demo", speed: float = 1.
             )
             results.append({"voice": name, "path": result.path, "status": "ok"})
         except Exception as e:
-            logger.error("demo generate for %s failed: %s", name, e)
+            logger.error(
+                "demo generate for %s failed: %s",
+                name,
+                e,
+                exc_info=logger.isEnabledFor(logging.DEBUG),
+            )
             results.append({"voice": name, "error": str(e), "status": "failed"})
 
     return {"results": results}
