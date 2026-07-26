@@ -49,7 +49,7 @@ dev = [
     "pytest>=7",
     # Pin to track the ruff-pre-commit hook rev so the same rules run
     # locally, in the hook, and in CI. Bump both in lockstep.
-    "ruff==0.15.*",
+    "ruff>=0.15,<0.17",
     "pre-commit>=3",
 ]
 
